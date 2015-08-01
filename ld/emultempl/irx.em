@@ -84,10 +84,10 @@ static struct lang_output_section_phdr_list none_phdr = {
 static void
 gld${EMULATION_NAME}_before_parse (void)
 {
-  ldfile_set_output_arch ("`echo ${ARCH}`");
+  ldfile_set_output_arch ("`echo ${ARCH}`", bfd_arch_`echo ${ARCH} | sed -e 's/:.*//'`);
 
   /* Only setup IRX headers for executable files.  */
-  if (link_info.relocateable)
+  if (link_info.relocatable)
     {
       building_irx = FALSE;
       return;
@@ -491,11 +491,11 @@ cat >>e${EMULATION_NAME}.c <<EOF
 {			     
   *isfile = 0;
 
-  if (link_info.relocateable && config.build_constructors)
+  if (link_info.relocatable && config.build_constructors)
     return
 EOF
 sed $sc ldscripts/${EMULATION_NAME}.xu                 >> e${EMULATION_NAME}.c
-echo '  ; else if (link_info.relocateable) return'     >> e${EMULATION_NAME}.c
+echo '  ; else if (link_info.relocatable) return'      >> e${EMULATION_NAME}.c
 sed $sc ldscripts/${EMULATION_NAME}.xr                 >> e${EMULATION_NAME}.c
 echo '  ; else if (!config.text_read_only) return'     >> e${EMULATION_NAME}.c
 sed $sc ldscripts/${EMULATION_NAME}.xbn                >> e${EMULATION_NAME}.c
@@ -512,9 +512,9 @@ cat >>e${EMULATION_NAME}.c <<EOF
 {			     
   *isfile = 1;
 
-  if (link_info.relocateable && config.build_constructors)
+  if (link_info.relocatable && config.build_constructors)
     return "ldscripts/${EMULATION_NAME}.xu";
-  else if (link_info.relocateable)
+  else if (link_info.relocatable)
     return "ldscripts/${EMULATION_NAME}.xr";
   else if (!config.text_read_only)
     return "ldscripts/${EMULATION_NAME}.xbn";

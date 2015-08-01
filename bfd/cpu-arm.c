@@ -155,7 +155,7 @@ const bfd_arch_info_type bfd_arm_arch =
 
 /* Support functions used by both the COFF and ELF versions of the ARM port.  */
 
-/* Handle the mergeing of the 'machine' settings of input file IBFD
+/* Handle the merging of the 'machine' settings of input file IBFD
    and an output file OBFD.  These values actually represent the
    different possible ARM architecture variants.
    Returns TRUE if they were merged successfully or FALSE otherwise.  */
@@ -172,7 +172,7 @@ bfd_arm_merge_machines (ibfd, obfd)
   if (out == bfd_mach_arm_unknown)
     bfd_set_arch_mach (obfd, bfd_arch_arm, in);
 
-  /* If the input architecure is unknown,
+  /* If the input architecture is unknown,
      then so must be the output architecture.  */
   else if (in == bfd_mach_arm_unknown)
     /* FIXME: We ought to have some way to
@@ -184,7 +184,7 @@ bfd_arm_merge_machines (ibfd, obfd)
     ;
 
   /* Otherwise the general principle that a earlier architecture can be
-     linked with a later architecure to produce a binary that will execute
+     linked with a later architecture to produce a binary that will execute
      on the later architecture.
 
      We fail however if we attempt to link a Cirrus EP9312 binary with an
@@ -260,7 +260,7 @@ arm_check_note (abfd, buffer, buffer_size, expected_name, description_return)
     }
   else
     { 
-      if (namesz != (strlen (expected_name) + 1 + 3) & ~3)
+      if (namesz != ((strlen (expected_name) + 1 + 3) & ~3))
 	return FALSE;
       
       if (strcmp (descr, expected_name) != 0)

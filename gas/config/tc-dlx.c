@@ -369,7 +369,6 @@ md_begin ()
     as_fatal (_("Broken assembler.  No assembly attempted."));
 
   define_some_regs ();
-  return;
 }
 
 /* Assemble a single instruction.  Its label has already been handled
@@ -631,7 +630,7 @@ dlx_parse_loadop (str)
 
       imm[m2] = '\0';
 
-      /* Assemble the instruction to gas intrernal format.  */
+      /* Assemble the instruction to gas internal format.  */
       for (i = 0; rd[i] != '\0'; i++)
 	iBuf[i] = rd[i];
 
@@ -754,7 +753,7 @@ dlx_parse_storeop (str)
 
       imm[i] = '\0';
 
-      /* Assemble the instruction to gas intrernal format.  */
+      /* Assemble the instruction to gas internal format.  */
       for (i = 0; rd[i] != '\0'; i++)
 	iBuf[i] = rd[i];
       iBuf[i++] = ',';
@@ -1224,7 +1223,6 @@ md_apply_fix3 (fixP, valP, seg)
   number_to_chars_bigendian (place, val, fixP->fx_size);
   if (fixP->fx_addsy == NULL)
     fixP->fx_done = 1;
-  return;
 }
 
 const char *md_shortopts = "";
@@ -1248,7 +1246,6 @@ void
 md_show_usage (stream)
      FILE *stream ATTRIBUTE_UNUSED;
 {
-  return;
 }
 
 /* This is called when a line is unrecognized.  */
@@ -1304,7 +1301,7 @@ md_undefined_symbol (name)
 
 
 /* Parse an operand that is machine-specific, the function was called
-   in expr.c by operand() function, when everything failed bdfore it
+   in expr.c by operand() function, when everything failed before it
    call a quit.  */
 
 void

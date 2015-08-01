@@ -23,9 +23,7 @@
 #define TC_Z8K
 #define TARGET_BYTES_BIG_ENDIAN 1
 
-#if ANSI_PROTOTYPES
 struct internal_reloc;
-#endif
 
 #define WORKING_DOT_WORD
 
@@ -40,6 +38,7 @@ struct internal_reloc;
 #define COFF_MAGIC 0x8000
 #define TC_COUNT_RELOC(x) (1)
 #define IGNORE_NONSTANDARD_ESCAPES
+#undef WARN_SIGNED_OVERFLOW_WORD
 
 #define TC_RELOC_MANGLE(s,a,b,c) tc_reloc_mangle(a,b,c)
 extern void tc_reloc_mangle

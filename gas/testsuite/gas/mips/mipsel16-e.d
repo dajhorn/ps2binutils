@@ -1,6 +1,6 @@
 #objdump: -rst -mips16
 #name: MIPS16 reloc
-#as: -mips16
+#as: -32 -mips16
 #source: mips16-e.s
 
 # Check MIPS16 reloc processing
@@ -31,12 +31,9 @@ OFFSET [ ]+ TYPE              VALUE
 
 Contents of section \.text:
  0000 00650065 00650065 00650065 00650065  .*
-Contents of section \.data:
 Contents of section \.reginfo:
  0000 01000000 00000000 00000000 00000000  .*
  0010 00000000 00000000                    .*
-Contents of section \.(mdebug|pdr):
-#...
 Contents of section foo:
  0000 00000000 08000000 00000000 03000000  .*
  0010 00000000 08000000 00000000 00000000  .*

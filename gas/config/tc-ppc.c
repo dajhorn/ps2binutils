@@ -24,7 +24,7 @@
 #include "as.h"
 #include "safe-ctype.h"
 #include "subsegs.h"
-
+#include "dw2gencfi.h"
 #include "opcode/ppc.h"
 
 #ifdef OBJ_ELF
@@ -111,7 +111,7 @@ static void ppc_ec PARAMS ((int));
 static void ppc_ef PARAMS ((int));
 static void ppc_es PARAMS ((int));
 static void ppc_csect PARAMS ((int));
-static void ppc_change_csect PARAMS ((symbolS *));
+static void ppc_change_csect PARAMS ((symbolS *, offsetT));
 static void ppc_function PARAMS ((int));
 static void ppc_extern PARAMS ((int));
 static void ppc_lglobl PARAMS ((int));
@@ -186,6 +186,9 @@ const char FLT_CHARS[] = "dD";
 /* '+' and '-' can be used as postfix predicate predictors for conditional 
    branches.  So they need to be accepted as symbol characters.  */
 const char ppc_symbol_chars[] = "+-";
+
+/* The dwarf2 data alignment, adjusted for 32 or 64 bit.  */
+int ppc_cie_data_alignment;
 
 /* The target specific pseudo-ops which we support.  */
 
@@ -237,8 +240,6 @@ const pseudo_typeS md_pseudo_table[] =
   { "rdata",	ppc_elf_rdata,	0 },
   { "rodata",	ppc_elf_rdata,	0 },
   { "lcomm",	ppc_elf_lcomm,	0 },
-  { "file",	(void (*) PARAMS ((int))) dwarf2_directive_file, 0 },
-  { "loc",	dwarf2_directive_loc, 0 },
 #endif
 
 #ifdef TE_PE
@@ -818,6 +819,107 @@ const struct option md_longopts[] = {
 };
 const size_t md_longopts_size = sizeof (md_longopts);
 
+
+/* Handle -m options that set cpu type, and .machine arg.  */
+
+static int
+parse_cpu (const char *arg)
+{
+  /* -mpwrx and -mpwr2 mean to assemble for the IBM POWER/2
+     (RIOS2).  */
+  if (strcmp (arg, "pwrx") == 0 || strcmp (arg, "pwr2") == 0)
+    ppc_cpu = PPC_OPCODE_POWER | PPC_OPCODE_POWER2 | PPC_OPCODE_32;
+  /* -mpwr means to assemble for the IBM POWER (RIOS1).  */
+  else if (strcmp (arg, "pwr") == 0)
+    ppc_cpu = PPC_OPCODE_POWER | PPC_OPCODE_32;
+  /* -m601 means to assemble for the PowerPC 601, which includes
+     instructions that are holdovers from the Power.  */
+  else if (strcmp (arg, "601") == 0)
+    ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
+	       | PPC_OPCODE_601 | PPC_OPCODE_32);
+  /* -mppc, -mppc32, -m603, and -m604 mean to assemble for the
+     PowerPC 603/604.  */
+  else if (strcmp (arg, "ppc") == 0
+	   || strcmp (arg, "ppc32") == 0
+	   || strcmp (arg, "603") == 0
+	   || strcmp (arg, "604") == 0)
+    ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_32;
+  /* -m403 and -m405 mean to assemble for the PowerPC 403/405.  */
+  else if (strcmp (arg, "403") == 0
+	   || strcmp (arg, "405") == 0)
+    ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
+	       | PPC_OPCODE_403 | PPC_OPCODE_32);
+  else if (strcmp (arg, "440") == 0)
+    ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_BOOKE | PPC_OPCODE_32
+	       | PPC_OPCODE_440 | PPC_OPCODE_ISEL | PPC_OPCODE_RFMCI);
+  else if (strcmp (arg, "7400") == 0
+	   || strcmp (arg, "7410") == 0
+	   || strcmp (arg, "7450") == 0
+	   || strcmp (arg, "7455") == 0)
+    ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
+	       | PPC_OPCODE_ALTIVEC | PPC_OPCODE_32);
+  else if (strcmp (arg, "altivec") == 0)
+    {
+      if (ppc_cpu == 0)
+	ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_ALTIVEC;
+      else
+	ppc_cpu |= PPC_OPCODE_ALTIVEC;
+    }
+  else if (strcmp (arg, "e500") == 0 || strcmp (arg, "e500x2") == 0)
+    {
+      ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_BOOKE | PPC_OPCODE_SPE
+		 | PPC_OPCODE_ISEL | PPC_OPCODE_EFS | PPC_OPCODE_BRLOCK
+		 | PPC_OPCODE_PMR | PPC_OPCODE_CACHELCK
+		 | PPC_OPCODE_RFMCI);
+    }
+  else if (strcmp (arg, "spe") == 0)
+    {
+      if (ppc_cpu == 0)
+	ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_SPE | PPC_OPCODE_EFS;
+      else
+	ppc_cpu |= PPC_OPCODE_SPE;
+    }
+  /* -mppc64 and -m620 mean to assemble for the 64-bit PowerPC
+     620.  */
+  else if (strcmp (arg, "ppc64") == 0 || strcmp (arg, "620") == 0)
+    {
+      ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_64;
+    }
+  else if (strcmp (arg, "ppc64bridge") == 0)
+    {
+      ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
+		 | PPC_OPCODE_64_BRIDGE | PPC_OPCODE_64);
+    }
+  /* -mbooke/-mbooke32 mean enable 32-bit BookE support.  */
+  else if (strcmp (arg, "booke") == 0 || strcmp (arg, "booke32") == 0)
+    {
+      ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_BOOKE | PPC_OPCODE_32;
+    }
+  /* -mbooke64 means enable 64-bit BookE support.  */
+  else if (strcmp (arg, "booke64") == 0)
+    {
+      ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_BOOKE
+		 | PPC_OPCODE_BOOKE64 | PPC_OPCODE_64);
+    }
+  else if (strcmp (arg, "power4") == 0)
+    {
+      ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
+		 | PPC_OPCODE_64 | PPC_OPCODE_POWER4);
+    }
+  /* -mcom means assemble for the common intersection between Power
+     and PowerPC.  At present, we just allow the union, rather
+     than the intersection.  */
+  else if (strcmp (arg, "com") == 0)
+    ppc_cpu = PPC_OPCODE_COMMON | PPC_OPCODE_32;
+  /* -many means to assemble for any architecture (PWR/PWRX/PPC).  */
+  else if (strcmp (arg, "any") == 0)
+    ppc_cpu |= PPC_OPCODE_ANY;
+  else
+    return 0;
+
+  return 1;
+}
+
 int
 md_parse_option (c, arg)
      int c;
@@ -885,92 +987,8 @@ md_parse_option (c, arg)
       break;
 
     case 'm':
-      /* -mpwrx and -mpwr2 mean to assemble for the IBM POWER/2
-	 (RIOS2).  */
-      if (strcmp (arg, "pwrx") == 0 || strcmp (arg, "pwr2") == 0)
-	ppc_cpu = PPC_OPCODE_POWER | PPC_OPCODE_POWER2 | PPC_OPCODE_32;
-      /* -mpwr means to assemble for the IBM POWER (RIOS1).  */
-      else if (strcmp (arg, "pwr") == 0)
-	ppc_cpu = PPC_OPCODE_POWER | PPC_OPCODE_32;
-      /* -m601 means to assemble for the PowerPC 601, which includes
-	 instructions that are holdovers from the Power.  */
-      else if (strcmp (arg, "601") == 0)
-	ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
-		   | PPC_OPCODE_601 | PPC_OPCODE_32);
-      /* -mppc, -mppc32, -m603, and -m604 mean to assemble for the
-	 PowerPC 603/604.  */
-      else if (strcmp (arg, "ppc") == 0
-	       || strcmp (arg, "ppc32") == 0
-	       || strcmp (arg, "603") == 0
-	       || strcmp (arg, "604") == 0)
-	ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_32;
-      /* -m403 and -m405 mean to assemble for the PowerPC 403/405.  */
-      else if (strcmp (arg, "403") == 0
-	       || strcmp (arg, "405") == 0)
-	ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
-		   | PPC_OPCODE_403 | PPC_OPCODE_32);
-      else if (strcmp (arg, "7400") == 0
-	       || strcmp (arg, "7410") == 0
-	       || strcmp (arg, "7450") == 0
-	       || strcmp (arg, "7455") == 0)
-	ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
-		   | PPC_OPCODE_ALTIVEC | PPC_OPCODE_32);
-      else if (strcmp (arg, "altivec") == 0)
-	{
-	  if (ppc_cpu == 0)
-	    ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_ALTIVEC;
-	  else
-	    ppc_cpu |= PPC_OPCODE_ALTIVEC;
-	}
-      else if (strcmp (arg, "e500") == 0 || strcmp (arg, "e500x2") == 0)
-	{
-	  ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_BOOKE | PPC_OPCODE_SPE
-		     | PPC_OPCODE_ISEL | PPC_OPCODE_EFS | PPC_OPCODE_BRLOCK
-		     | PPC_OPCODE_PMR | PPC_OPCODE_CACHELCK
-		     | PPC_OPCODE_RFMCI);
-	}
-      else if (strcmp (arg, "spe") == 0)
-	{
-	  if (ppc_cpu == 0)
-	    ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_SPE | PPC_OPCODE_EFS;
-	  else
-	    ppc_cpu |= PPC_OPCODE_SPE;
-	}
-      /* -mppc64 and -m620 mean to assemble for the 64-bit PowerPC
-	 620.  */
-      else if (strcmp (arg, "ppc64") == 0 || strcmp (arg, "620") == 0)
-	{
-	  ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_64;
-	}
-      else if (strcmp (arg, "ppc64bridge") == 0)
-	{
-	  ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
-		     | PPC_OPCODE_64_BRIDGE | PPC_OPCODE_64);
-	}
-      /* -mbooke/-mbooke32 mean enable 32-bit BookE support.  */
-      else if (strcmp (arg, "booke") == 0 || strcmp (arg, "booke32") == 0)
-	{
-	  ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_BOOKE | PPC_OPCODE_32;
-	}
-      /* -mbooke64 means enable 64-bit BookE support.  */
-      else if (strcmp (arg, "booke64") == 0)
-	{
-	  ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_BOOKE
-		     | PPC_OPCODE_BOOKE64 | PPC_OPCODE_64);
-	}
-      else if (strcmp (arg, "power4") == 0)
-	{
-	  ppc_cpu = (PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC
-		     | PPC_OPCODE_64 | PPC_OPCODE_POWER4);
-	}
-      /* -mcom means assemble for the common intersection between Power
-	 and PowerPC.  At present, we just allow the union, rather
-	 than the intersection.  */
-      else if (strcmp (arg, "com") == 0)
-	ppc_cpu = PPC_OPCODE_COMMON | PPC_OPCODE_32;
-      /* -many means to assemble for any architecture (PWR/PWRX/PPC).  */
-      else if (strcmp (arg, "any") == 0)
-	ppc_cpu = PPC_OPCODE_ANY | PPC_OPCODE_32;
+      if (parse_cpu (arg))
+	;
 
       else if (strcmp (arg, "regnames") == 0)
 	reg_names_p = TRUE;
@@ -1064,36 +1082,41 @@ md_show_usage (stream)
 {
   fprintf (stream, _("\
 PowerPC options:\n\
+-a32			generate ELF32/XCOFF32\n\
+-a64			generate ELF64/XCOFF64\n\
 -u			ignored\n\
 -mpwrx, -mpwr2		generate code for POWER/2 (RIOS2)\n\
 -mpwr			generate code for POWER (RIOS1)\n\
 -m601			generate code for PowerPC 601\n\
 -mppc, -mppc32, -m603, -m604\n\
 			generate code for PowerPC 603/604\n\
--m403, -m405            generate code for PowerPC 403/405\n\
+-m403, -m405		generate code for PowerPC 403/405\n\
+-m440			generate code for PowerPC 440\n\
 -m7400, -m7410, -m7450, -m7455\n\
-			generate code For PowerPC 7400/7410/7450/7455\n\
+			generate code For PowerPC 7400/7410/7450/7455\n"));
+  fprintf (stream, _("\
 -mppc64, -m620		generate code for PowerPC 620/625/630\n\
 -mppc64bridge		generate code for PowerPC 64, including bridge insns\n\
 -mbooke64		generate code for 64-bit PowerPC BookE\n\
 -mbooke, mbooke32	generate code for 32-bit PowerPC BookE\n\
 -mpower4		generate code for Power4 architecture\n\
--maltivec		generate code for AltiVec\n\
 -mcom			generate code Power/PowerPC common instructions\n\
--many			generate code for any architecture (PWR/PWRX/PPC)\n\
+-many			generate code for any architecture (PWR/PWRX/PPC)\n"));
+  fprintf (stream, _("\
+-maltivec		generate code for AltiVec\n\
+-me500, -me500x2	generate code for Motorola e500 core complex\n\
+-mspe			generate code for Motorola SPE instructions\n\
 -mregnames		Allow symbolic names for registers\n\
 -mno-regnames		Do not allow symbolic names for registers\n"));
-  fprintf (stream, _("\
--me500, -me500x2	generate code for Motorola e500 core complex\n\
--mspe			generate code for Motorola SPE instructions\n"));
 #ifdef OBJ_ELF
   fprintf (stream, _("\
 -mrelocatable		support for GCC's -mrelocatble option\n\
 -mrelocatable-lib	support for GCC's -mrelocatble-lib option\n\
 -memb			set PPC_EMB bit in ELF flags\n\
--mlittle, -mlittle-endian\n\
+-mlittle, -mlittle-endian, -l, -le\n\
 			generate code for a little endian machine\n\
--mbig, -mbig-endian	generate code for a big endian machine\n\
+-mbig, -mbig-endian, -b, -be\n\
+			generate code for a big endian machine\n\
 -msolaris		generate code for Solaris\n\
 -mno-solaris		do not generate code for Solaris\n\
 -V			print assembler version number\n\
@@ -1109,23 +1132,23 @@ ppc_set_cpu ()
   const char *default_os  = TARGET_OS;
   const char *default_cpu = TARGET_CPU;
 
-  if (ppc_cpu == 0)
+  if ((ppc_cpu & ~PPC_OPCODE_ANY) == 0)
     {
       if (ppc_obj64)
-	ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_64;
+	ppc_cpu |= PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_64;
       else if (strncmp (default_os, "aix", 3) == 0
 	       && default_os[3] >= '4' && default_os[3] <= '9')
-	ppc_cpu = PPC_OPCODE_COMMON | PPC_OPCODE_32;
+	ppc_cpu |= PPC_OPCODE_COMMON | PPC_OPCODE_32;
       else if (strncmp (default_os, "aix3", 4) == 0)
-	ppc_cpu = PPC_OPCODE_POWER | PPC_OPCODE_32;
+	ppc_cpu |= PPC_OPCODE_POWER | PPC_OPCODE_32;
       else if (strcmp (default_cpu, "rs6000") == 0)
-	ppc_cpu = PPC_OPCODE_POWER | PPC_OPCODE_32;
+	ppc_cpu |= PPC_OPCODE_POWER | PPC_OPCODE_32;
       else if (strncmp (default_cpu, "powerpc", 7) == 0)
 	{
 	  if (default_cpu[7] == '6' && default_cpu[8] == '4')
-	    ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_64;
+	    ppc_cpu |= PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_64;
 	  else
-	    ppc_cpu = PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_32;
+	    ppc_cpu |= PPC_OPCODE_PPC | PPC_OPCODE_CLASSIC | PPC_OPCODE_32;
 	}
       else
 	as_fatal (_("Unknown default cpu = %s, os = %s"),
@@ -1191,12 +1214,11 @@ ppc_target_format ()
 #endif
 }
 
-/* This function is called when the assembler starts up.  It is called
-   after the options have been parsed and the output file has been
-   opened.  */
+/* Insert opcodes and macros into hash tables.  Called at startup and
+   for .cpu pseudo.  */
 
-void
-md_begin ()
+static void
+ppc_setup_opcodes (void)
 {
   register const struct powerpc_opcode *op;
   const struct powerpc_opcode *op_end;
@@ -1204,13 +1226,10 @@ md_begin ()
   const struct powerpc_macro *macro_end;
   bfd_boolean dup_insn = FALSE;
 
-  ppc_set_cpu ();
-
-#ifdef OBJ_ELF
-  /* Set the ELF flags if desired.  */
-  if (ppc_flags && !msolaris)
-    bfd_set_private_flags (stdoutput, ppc_flags);
-#endif
+  if (ppc_hash != NULL)
+    hash_die (ppc_hash);
+  if (ppc_macro_hash != NULL)
+    hash_die (ppc_macro_hash);
 
   /* Insert the opcodes into a hash table.  */
   ppc_hash = hash_new ();
@@ -1240,7 +1259,7 @@ md_begin ()
 	  const char *retval;
 
 	  retval = hash_insert (ppc_hash, op->name, (PTR) op);
-	  if (retval != (const char *) NULL)
+	  if (retval != NULL)
 	    {
 	      /* Ignore Power duplicates for -m601.  */
 	      if ((ppc_cpu & PPC_OPCODE_601) != 0
@@ -1253,6 +1272,10 @@ md_begin ()
 	    }
 	}
     }
+
+  if ((ppc_cpu & PPC_OPCODE_ANY) != 0)
+    for (op = powerpc_opcodes; op < op_end; op++)
+      hash_insert (ppc_hash, op->name, (PTR) op);
 
   /* Insert the macros into a hash table.  */
   ppc_macro_hash = hash_new ();
@@ -1275,8 +1298,28 @@ md_begin ()
 
   if (dup_insn)
     abort ();
+}
 
-  /* Tell the main code what the endianness is if it is not overidden
+/* This function is called when the assembler starts up.  It is called
+   after the options have been parsed and the output file has been
+   opened.  */
+
+void
+md_begin ()
+{
+  ppc_set_cpu ();
+
+  ppc_cie_data_alignment = ppc_obj64 ? -8 : -4;
+
+#ifdef OBJ_ELF
+  /* Set the ELF flags if desired.  */
+  if (ppc_flags && !msolaris)
+    bfd_set_private_flags (stdoutput, ppc_flags);
+#endif
+
+  ppc_setup_opcodes ();
+
+  /* Tell the main code what the endianness is if it is not overridden
      by the user.  */
   if (!set_target_endian)
     {
@@ -1340,7 +1383,7 @@ ppc_cleanup ()
     md_number_to_chars (p, (valueT) 8, 4);
 
     p = frag_more (4);
-    md_number_to_chars (p, (valueT) ppc_apuinfo_num, 4);
+    md_number_to_chars (p, (valueT) ppc_apuinfo_num * 4, 4);
 
     p = frag_more (4);
     md_number_to_chars (p, (valueT) 2, 4);
@@ -1611,11 +1654,11 @@ ppc_elf_suffix (str_p, exp_p)
 	*str_p = str;
 
 	if (reloc == (int) BFD_RELOC_PPC64_TOC
-	    && exp_p->X_op == O_symbol)
+	    && exp_p->X_op == O_symbol
+	    && strcmp (S_GET_NAME (exp_p->X_add_symbol), ".TOC.") == 0)
 	  {
-	    /* This reloc type ignores the symbol.  Change the symbol
-	       so that the dummy .TOC. symbol can be omitted from the
-	       object file.  */
+	    /* Change the symbol so that the dummy .TOC. symbol can be
+	       omitted from the object file.  */
 	    exp_p->X_add_symbol = &abs_symbol;
 	  }
 
@@ -2093,13 +2136,14 @@ md_assemble (str)
 
   /* PowerPC operands are just expressions.  The only real issue is
      that a few operand types are optional.  All cases which might use
-     an optional operand separate the operands only with commas (in
-     some cases parentheses are used, as in ``lwz 1,0(1)'' but such
-     cases never have optional operands).  There is never more than
-     one optional operand for an instruction.  So, before we start
-     seriously parsing the operands, we check to see if we have an
-     optional operand, and, if we do, we count the number of commas to
-     see whether the operand should be omitted.  */
+     an optional operand separate the operands only with commas (in some
+     cases parentheses are used, as in ``lwz 1,0(1)'' but such cases never
+     have optional operands).  Most instructions with optional operands
+     have only one.  Those that have more than one optional operand can
+     take either all their operands or none.  So, before we start seriously
+     parsing the operands, we check to see if we have optional operands,
+     and if we do, we count the number of commas to see which operands
+     have been omitted.  */
   skip_optional = 0;
   for (opindex_ptr = opcode->operands; *opindex_ptr != 0; opindex_ptr++)
     {
@@ -2135,7 +2179,7 @@ md_assemble (str)
 
 	  /* If there are fewer operands in the line then are called
 	     for by the instruction, we want to skip the optional
-	     operand.  */
+	     operands.  */
 	  if (opcount < num_operands_expected)
 	    skip_optional = 1;
 
@@ -2445,7 +2489,7 @@ md_assemble (str)
 	    }
 
 	  if (ppc_obj64
-	      && (operand->flags & PPC_OPERAND_DS) != 0)
+	      && (operand->flags & (PPC_OPERAND_DS | PPC_OPERAND_DQ)) != 0)
 	    {
 	      switch (reloc)
 		{
@@ -2750,7 +2794,7 @@ ppc_section_letter (letter, ptr_msg)
     return SHF_EXCLUDE;
 
   *ptr_msg = _("Bad .section directive: want a,e,w,x,M,S,G,T in string");
-  return 0;
+  return -1;
 }
 
 int
@@ -2839,7 +2883,7 @@ static bfd_boolean ppc_stab_symbol;
 
 /* The .comm and .lcomm pseudo-ops for XCOFF.  XCOFF puts common
    symbols in the .bss segment as though they were local common
-   symbols, and uses a different smclas.  The native Aix 4.3.3 assember
+   symbols, and uses a different smclas.  The native Aix 4.3.3 assembler
    aligns .comm and .lcomm to 4 bytes.  */
 
 static void
@@ -3004,6 +3048,7 @@ ppc_csect (ignore)
   char *name;
   char endc;
   symbolS *sym;
+  offsetT align;
 
   name = input_line_pointer;
   endc = get_symbol_end ();
@@ -3018,13 +3063,14 @@ ppc_csect (ignore)
       symbol_get_tc (sym)->class = XMC_PR;
     }
 
-  ppc_change_csect (sym);
-
+  align = 2;
   if (*input_line_pointer == ',')
     {
       ++input_line_pointer;
-      symbol_get_tc (sym)->align = get_absolute_expression ();
+      align = get_absolute_expression ();
     }
+
+  ppc_change_csect (sym, align);
 
   demand_empty_rest_of_line ();
 }
@@ -3032,8 +3078,9 @@ ppc_csect (ignore)
 /* Change to a different csect.  */
 
 static void
-ppc_change_csect (sym)
+ppc_change_csect (sym, align)
      symbolS *sym;
+     offsetT align;
 {
   if (S_IS_DEFINED (sym))
     subseg_set (S_GET_SEGMENT (sym), symbol_get_tc (sym)->subseg);
@@ -3043,11 +3090,14 @@ ppc_change_csect (sym)
       int after_toc;
       int hold_chunksize;
       symbolS *list;
+      int is_code;
+      segT sec;
 
       /* This is a new csect.  We need to look at the symbol class to
 	 figure out whether it should go in the text section or the
 	 data section.  */
       after_toc = 0;
+      is_code = 0;
       switch (symbol_get_tc (sym)->class)
 	{
 	case XMC_PR:
@@ -3062,6 +3112,7 @@ ppc_change_csect (sym)
 	  symbol_get_tc (sym)->subseg = ppc_text_subsegment;
 	  ++ppc_text_subsegment;
 	  list_ptr = &ppc_text_csects;
+	  is_code = 1;
 	  break;
 	case XMC_RW:
 	case XMC_TC0:
@@ -3089,18 +3140,24 @@ ppc_change_csect (sym)
       hold_chunksize = chunksize;
       chunksize = 64;
 
-      subseg_new (segment_name (S_GET_SEGMENT (sym)),
-		  symbol_get_tc (sym)->subseg);
+      sec = subseg_new (segment_name (S_GET_SEGMENT (sym)),
+			symbol_get_tc (sym)->subseg);
 
       chunksize = hold_chunksize;
 
       if (after_toc)
 	ppc_after_toc_frag = frag_now;
 
+      record_alignment (sec, align);
+      if (is_code)
+	frag_align_code (align, 0);
+      else
+	frag_align (align, 0, 0);
+
       symbol_set_frag (sym, frag_now);
       S_SET_VALUE (sym, (valueT) frag_now_fix ());
 
-      symbol_get_tc (sym)->align = 2;
+      symbol_get_tc (sym)->align = align;
       symbol_get_tc (sym)->output = 1;
       symbol_get_tc (sym)->within = sym;
 
@@ -3138,7 +3195,7 @@ ppc_section (type)
 
   sym = symbol_find_or_make (name);
 
-  ppc_change_csect (sym);
+  ppc_change_csect (sym, 2);
 
   demand_empty_rest_of_line ();
 }
@@ -3175,7 +3232,7 @@ ppc_named_section (ignore)
 
   sym = symbol_find_or_make (real_name);
 
-  ppc_change_csect (sym);
+  ppc_change_csect (sym, 2);
 
   demand_empty_rest_of_line ();
 }
@@ -3381,7 +3438,7 @@ ppc_stabx (ignore)
 
 /* The .function pseudo-op.  This takes several arguments.  The first
    argument seems to be the external name of the symbol.  The second
-   argment seems to be the label for the start of the function.  gcc
+   argument seems to be the label for the start of the function.  gcc
    uses the same name for both.  I have no idea what the third and
    fourth arguments are meant to be.  The optional fifth argument is
    an expression for the size of the function.  In COFF this symbol
@@ -3846,7 +3903,7 @@ ppc_vbyte (dummy)
    give to this location in the toc; this will be a symbol with class
    TC.  The rest of the arguments are N-byte values to actually put at
    this location in the TOC; often there is just one more argument, a
-   relocateable symbol reference.  The size of the value to store
+   relocatable symbol reference.  The size of the value to store
    depends on target word size.  A 32-bit target uses 4-byte values, a
    64-bit target uses 8-byte values.
 
@@ -3939,18 +3996,67 @@ ppc_tc (ignore)
 }
 
 /* Pseudo-op .machine.  */
-/* FIXME: `.machine' is a nop for the moment.  It would be nice to
-   accept this directive on the first line of input and set ppc_obj64
-   and the target format accordingly.  Unfortunately, the target
-   format is selected in output-file.c:output_file_create before we
-   even get to md_begin, so it's not possible without changing
-   as.c:main.  */
 
 static void
 ppc_machine (ignore)
      int ignore ATTRIBUTE_UNUSED;
 {
-  discard_rest_of_line ();
+  char *cpu_string;
+#define MAX_HISTORY 100
+  static unsigned long *cpu_history;
+  static int curr_hist;
+
+  SKIP_WHITESPACE ();
+
+  if (*input_line_pointer == '"')
+    {
+      int len;
+      cpu_string = demand_copy_C_string (&len);
+    }
+  else
+    {
+      char c;
+      cpu_string = input_line_pointer;
+      c = get_symbol_end ();
+      cpu_string = xstrdup (cpu_string);
+      *input_line_pointer = c;
+    }
+
+  if (cpu_string != NULL)
+    {
+      unsigned long old_cpu = ppc_cpu;
+      char *p;
+
+      for (p = cpu_string; *p != 0; p++)
+	*p = TOLOWER (*p);
+
+      if (strcmp (cpu_string, "push") == 0)
+	{
+	  if (cpu_history == NULL)
+	    cpu_history = xmalloc (MAX_HISTORY * sizeof (*cpu_history));
+
+	  if (curr_hist >= MAX_HISTORY)
+	    as_bad (_(".machine stack overflow"));
+	  else
+	    cpu_history[curr_hist++] = ppc_cpu;
+	}
+      else if (strcmp (cpu_string, "pop") == 0)
+	{
+	  if (curr_hist <= 0)
+	    as_bad (_(".machine stack underflow"));
+	  else
+	    ppc_cpu = cpu_history[--curr_hist];
+	}
+      else if (parse_cpu (cpu_string))
+	;
+      else
+	as_bad (_("invalid machine `%s'"), cpu_string);
+
+      if (ppc_cpu != old_cpu)
+	ppc_setup_opcodes ();
+    }
+
+  demand_empty_rest_of_line ();
 }
 
 /* See whether a symbol is in the TOC section.  */
@@ -5045,8 +5151,9 @@ void
 ppc_frob_section (sec)
      asection *sec;
 {
-  static bfd_size_type vma = 0;
+  static bfd_vma vma = 0;
 
+  vma = md_section_align (sec, vma);
   bfd_set_section_vma (stdoutput, sec, vma);
   vma += bfd_section_size (stdoutput, sec);
 }
@@ -5712,18 +5819,29 @@ md_apply_fix3 (fixP, valP, seg)
 	    abort ();
 	  {
 	    unsigned char *where = fixP->fx_frag->fr_literal + fixP->fx_where;
-	    unsigned long val;
+	    unsigned long val, mask;
 
 	    if (target_big_endian)
-	      val = bfd_getb16 (where);
+	      val = bfd_getb32 (where - 2);
 	    else
-	      val = bfd_getl16 (where);
-	    val |= (value & 0xfffc);
+	      val = bfd_getl32 (where);
+	    mask = 0xfffc;
+	    /* lq insns reserve the four lsbs.  */
+	    if ((ppc_cpu & PPC_OPCODE_POWER4) != 0
+		&& (val & (0x3f << 26)) == (56u << 26))
+	      mask = 0xfff0;
+	    val |= value & mask;
 	    if (target_big_endian)
 	      bfd_putb16 ((bfd_vma) val, where);
 	    else
 	      bfd_putl16 ((bfd_vma) val, where);
 	  }
+	  break;
+
+	case BFD_RELOC_PPC_B16_BRTAKEN:
+	case BFD_RELOC_PPC_B16_BRNTAKEN:
+	case BFD_RELOC_PPC_BA16_BRTAKEN:
+	case BFD_RELOC_PPC_BA16_BRNTAKEN:
 	  break;
 
 	case BFD_RELOC_PPC_TLS:
@@ -5781,10 +5899,19 @@ md_apply_fix3 (fixP, valP, seg)
 
 	case BFD_RELOC_8:
 	  if (fixP->fx_pcrel)
-	    abort ();
-
-	  md_number_to_chars (fixP->fx_frag->fr_literal + fixP->fx_where,
-			      value, 1);
+	    {
+	      /* This can occur if there is a bug in the input assembler, eg:
+	         ".byte <undefined_symbol> - ."  */
+	      if (fixP->fx_addsy)
+		as_bad (_("Unable to handle reference to symbol %s"),
+			S_GET_NAME (fixP->fx_addsy));
+	      else
+		as_bad (_("Unable to resolve expression"));
+	      fixP->fx_done = 1;
+	    }
+	  else
+	    md_number_to_chars (fixP->fx_frag->fr_literal + fixP->fx_where,
+				value, 1);
 	  break;
 
 	case BFD_RELOC_24_PLT_PCREL:
@@ -5891,4 +6018,50 @@ tc_gen_reloc (seg, fixp)
   reloc->addend = fixp->fx_addnumber;
 
   return reloc;
+}
+
+void
+ppc_cfi_frame_initial_instructions ()
+{
+  cfi_add_CFA_def_cfa (1, 0);
+}
+
+int
+tc_ppc_regname_to_dw2regnum (const char *regname)
+{
+  unsigned int regnum = -1;
+  unsigned int i;
+  const char *p;
+  char *q;
+  static struct { char *name; int dw2regnum; } regnames[] =
+    {
+      { "sp", 1 }, { "r.sp", 1 }, { "rtoc", 2 }, { "r.toc", 2 },
+      { "mq", 64 }, { "lr", 65 }, { "ctr", 66 }, { "ap", 67 },
+      { "cc", 68 }, { "xer", 76 }, { "vrsave", 109 }, { "vscr", 110 },
+      { "spe_acc", 111 }, { "spefscr", 112 }
+    };
+
+  for (i = 0; i < ARRAY_SIZE (regnames); ++i)
+    if (strcmp (regnames[i].name, regname) == 0)
+      return regnames[i].dw2regnum;
+
+  if (regname[0] == 'r' || regname[0] == 'f' || regname[0] == 'v')
+    {
+      p = regname + 1 + (regname[1] == '.');
+      regnum = strtoul (p, &q, 10);
+      if (p == q || *q || regnum >= 32)
+	return -1;
+      if (regname[0] == 'f')
+        regnum += 32;
+      else if (regname[0] == 'v')
+        regnum += 77;
+    }
+  else if (regname[0] == 'c' && regname[1] == 'r')
+    {
+      p = regname + 2 + (regname[2] == '.');
+      if (p[0] < '0' || p[0] > '7' || p[1])
+        return -1;
+      regnum = p[0] - '0' + 68;
+    }
+  return regnum;
 }

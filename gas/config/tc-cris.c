@@ -157,11 +157,21 @@ static char *cris_insn_first_word_frag PARAMS ((void));
 /* Handle to the opcode hash table.  */
 static struct hash_control *op_hash = NULL;
 
+/* If we target cris-axis-linux-gnu (as opposed to generic cris-axis-elf),
+   we default to no underscore and required register-prefixes.  The
+   difference is in the default values.  */
+#ifdef TE_LINUX
+#define DEFAULT_CRIS_AXIS_LINUX_GNU TRUE
+#else
+#define DEFAULT_CRIS_AXIS_LINUX_GNU FALSE
+#endif
+
 /* Whether we demand that registers have a `$' prefix.  Default here.  */
-static bfd_boolean demand_register_prefix = FALSE;
+static bfd_boolean demand_register_prefix = DEFAULT_CRIS_AXIS_LINUX_GNU;
 
 /* Whether global user symbols have a leading underscore.  Default here.  */
-static bfd_boolean symbols_have_leading_underscore = TRUE;
+static bfd_boolean symbols_have_leading_underscore
+  = !DEFAULT_CRIS_AXIS_LINUX_GNU;
 
 /* Whether or not we allow PIC, and expand to PIC-friendly constructs.  */
 static bfd_boolean pic = FALSE;
@@ -222,7 +232,7 @@ const char FLT_CHARS[] = "";
 #define STATE_UNDF		    (3)
 #define STATE_MAX_LENGTH	    (3)
 
-/* These displacements are relative to the adress following the opcode
+/* These displacements are relative to the address following the opcode
    word of the instruction.  The first letter is Byte, Word.  The 2nd
    letter is Forward, Backward.  */
 
@@ -961,7 +971,7 @@ md_assemble (str)
     {
       if (output_instruction.imm_oprnd_size > 0)
 	{
-	  /* The intruction has an immediate operand.  */
+	  /* The instruction has an immediate operand.  */
 	  enum bfd_reloc_code_real reloc = BFD_RELOC_NONE;
 
 	  switch (output_instruction.imm_oprnd_size)
@@ -2099,7 +2109,7 @@ get_autoinc_prefix_or_indir_op (cPP, prefixp, is_autoincp, src_regnop,
    advanced to the character following the indirect operand on success, or
    has an unspecified value on failure.
 
-   cPP	     Pointer to pointer to string begining
+   cPP	     Pointer to pointer to string beginning
 	     with the operand
 
    prefixp   Pointer to structure containing an
