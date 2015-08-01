@@ -374,7 +374,9 @@ ppc_elf_copy_indirect_symbol (bed, dir, ind)
 
   edir->tls_mask |= eind->tls_mask;
 
-  if (ELIMINATE_COPY_RELOCS && ind->root.type != bfd_link_hash_indirect)
+  if (ELIMINATE_COPY_RELOCS
+      && ind->root.type != bfd_link_hash_indirect
+      && (dir->elf_link_hash_flags & ELF_LINK_HASH_DYNAMIC_ADJUSTED) != 0)
     /* If called to transfer flags for a weakdef during processing
        of elf_adjust_dynamic_symbol, don't copy ELF_LINK_NON_GOT_REF.
        We clear it ourselves for ELIMINATE_COPY_RELOCS.  */
@@ -2736,7 +2738,7 @@ allocate_dynrelocs (h, inf)
 	     for two entries is allocated.  */
 	  s->_raw_size += PLT_ENTRY_SIZE;
 	  if ((s->_raw_size - PLT_INITIAL_ENTRY_SIZE) / PLT_ENTRY_SIZE
-	      >= PLT_NUM_SINGLE_ENTRIES)
+	      > PLT_NUM_SINGLE_ENTRIES)
 	    s->_raw_size += PLT_ENTRY_SIZE;
 
 	  /* We also need to make an entry in the .rela.plt section.  */

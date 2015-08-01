@@ -163,7 +163,7 @@ struct bfd_link_hash_table
   struct bfd_link_hash_entry *undefs;
   /* Entries are added to the tail of the undefs list.  */
   struct bfd_link_hash_entry *undefs_tail;
-  /* The type of the ink hash table.  */
+  /* The type of the link hash table.  */
   enum bfd_link_hash_table_type type;
 };
 
@@ -287,6 +287,9 @@ struct bfd_link_info
 
   /* TRUE if global symbols in discarded sections should be stripped.  */
   unsigned int strip_discarded: 1;
+
+  /* TRUE if relaxation is being finalized.  */
+  unsigned int relax_finalizing: 1;
 
   /* Which symbols to strip.  */
   enum bfd_link_strip strip;

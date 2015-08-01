@@ -271,7 +271,7 @@ bfd_elf_hash (namearg)
 	  h ^= g;
 	}
     }
-  return h;
+  return h & 0xffffffff;
 }
 
 /* Read a specified number of bytes at a specified offset in an ELF
@@ -1616,7 +1616,7 @@ bfd_elf_get_needed_list (abfd, info)
      bfd *abfd ATTRIBUTE_UNUSED;
      struct bfd_link_info *info;
 {
-  if (info->hash->creator->flavour != bfd_target_elf_flavour)
+  if (! is_elf_hash_table (info))
     return NULL;
   return elf_hash_table (info)->needed;
 }
@@ -1629,7 +1629,7 @@ bfd_elf_get_runpath_list (abfd, info)
      bfd *abfd ATTRIBUTE_UNUSED;
      struct bfd_link_info *info;
 {
-  if (info->hash->creator->flavour != bfd_target_elf_flavour)
+  if (! is_elf_hash_table (info))
     return NULL;
   return elf_hash_table (info)->runpath;
 }
@@ -2365,9 +2365,9 @@ elf_fake_sections (abfd, asect, failedptrarg)
 
   this_hdr = &elf_section_data (asect)->this_hdr;
 
-  this_hdr->sh_name = (unsigned long) _bfd_elf_strtab_add (elf_shstrtab (abfd),
-							   asect->name, FALSE);
-  if (this_hdr->sh_name == (unsigned long) -1)
+  this_hdr->sh_name = (unsigned int) _bfd_elf_strtab_add (elf_shstrtab (abfd),
+							  asect->name, FALSE);
+  if (this_hdr->sh_name == (unsigned int) -1)
     {
       *failedptr = TRUE;
       return;

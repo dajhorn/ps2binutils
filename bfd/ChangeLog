@@ -1,3 +1,213 @@
+2003-06-12  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Bump version to 2.14.
+	* configure: Regenerated.
+
+2003-06-05  Daniel Jacobowitz  <drow@mvista.com>
+
+	* elfcode.h (elf_slurp_reloc_table_from_section): Don't dereference
+	NULL function pointers.
+
+2003-06-04  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* coff-tic4x.c (ticoff0_swap_table, ticoff1_swap_table): Fixed
+	initialization bug
+
+2003-06-03  Nick Clifton  <nickc@redhat.com>
+
+	* elf32-v850.c (v850_elf_howto_t): Rename R_V850_32to
+	R_V850_ABS32.  Add entry for R_V850_REL32.
+        (v850_elf_reloc_map): Likewise.
+        (v850_elf_check_relocs): Likewise.
+        (v850_elf_perform_relocation): Likewise.
+        (v850_elf_final_link_relocate): Likewise.  Include computation
+	to make R_V850_REl32 pc-relative.
+          
+2003-06-02  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Bump version to 2.13.92.
+	* configure: Regenerated.
+
+2003-06-02  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config.bfd: Move obsolete entries out of the range of the
+	targmatch sed script.
+
+2003-06-02  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config.bfd (mips*-dec-bsd*, mips*-*-pe*): Mark as obsolete.
+
+2003-06-02  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+	2003-05-28  Alan Modra  <amodra@bigpond.net.au>
+	* elf32-hppa.c (elf32_hppa_relocate_section): Delete bogus
+	undefined_symbol call.
+
+	2003-05-21  Nick Clifton  <nickc@redhat.com>
+	* elf.c (bfd_elf_get_needed_list): Use is_elf_hash_table to check
+	the type of the has table in the bfd_link_info structure.
+	(bfd_elf_get_runpath_list): Likewise.
+
+	2003-05-20  Jakub Jelinek  <jakub@redhat.com>
+	* elflink.h (elf_link_output_extsym): Only issue error about !=
+	STV_DEFAULT symbols if they are bfd_link_hash_undefined.
+
+	* elflink.h (elf_merge_symbol): Change from:
+	 2003-05-20  H.J. Lu <hongjiu.lu@intel.com>
+	 * elflink.c (_bfd_elf_merge_symbol): Check ELF_LINK_DYNAMIC_DEF
+	 when removing the old definition for symbols with non-default
+	 visibility.
+
+2003-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* elf32-ppc.c (allocate_dynrelocs): Use single slot for first 8192
+	plt entries, not just 8191.
+
+2003-05-30  Daniel Jacobowitz  <drow@mvista.com>
+
+	* elfxx-mips.c (_bfd_mips_elf_discard_info): Correct loop index.
+	Reported by Ken Faiczak <kfaiczak@SANDVINE.com>.
+
+2003-05-29  Thiemo Seufer <seufer@csv.ica.uni-stuttgart.de>
+
+	* elfxx-mips.c: Don't force symbols local unconditionally.
+
+2003-05-23  Stuart F. Downing  <sdowning@fame.com>
+
+	* som.h: Define PA_2_0 before including a.out.h
+
+2003-05-15  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+
+	2003-05-09  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+	* elf32-s390.c (ELIMINATE_COPY_RELOCS): Define as one.
+	(elf_s390_adjust_dynamic_symbol): For weak symbols, copy
+	ELF_LINK_NON_GOT_REF from weakdef.
+	(elf_s390_copy_indirect_symbol): Test whether the weakdef sym has
+	already been adjusted before treating it specially.
+	* el64-s390.c: Likwise.
+
+	2003-05-08  H.J. Lu <hongjiu.lu@intel.com>
+	* elflink.h (elf_add_default_symbol): After skipping the
+	unversioned symbol, go to non-default one.
+
+	2003-05-07  H.J. Lu <hongjiu.lu@intel.com>
+	* elflink.h (elf_link_check_versioned_symbol): Also handle the
+	case that a DSO references a hidden symbol which may be
+	satisfied by a versioned symbol in another DSO.
+	(elf_link_output_extsym): Check versioned definition for hidden
+	symbol referenced by a DSO.
+
+	2003-05-06  Alexandre Oliva  <aoliva@redhat.com>
+	* elfxx-mips.c (_bfd_mips_elf_merge_private_bfd_data): Improve
+	error message for mixing different-endian files.  Check for ABI
+	compatibility of input files with the selected emulation.
+
+2003-05-13  Stephane Carrez  <stcarrez@nerim.fr>
+
+	* elf32-m68hc1x.c (_bfd_m68hc11_elf_merge_private_bfd_data): Check for
+	processor capability, allow merge of HC12 and HCS12 in some cases.
+	(m68hc11_elf_hash_table_create): Use bfd_malloc instead of bfd_zalloc.
+	* cpu-m68hc12.c (bfd_m68hc12s_arch): New struct.
+	(bfd_m68hc12_arch): Link it.
+	(scan_mach): New function.
+
+2003-05-13  Andrew Haley  <aph@redhat.com>
+
+        * elf.c (bfd_elf_hash): Mask lower 32 bits of hash.
+
+2003-05-09  Alan Modra  <amodra@bigpond.net.au>
+
+	* cpu-arm.c (arm_check_note): Warning fix.
+	* elf32-iq2000.c (iq2000_elf_check_relocs): Warning fixes.  Arrange
+	to keep relocs if edited.
+	(iq2000_elf_print_private_bfd_data): Return TRUE.
+	* elfxx-ia64.c (elfNN_ia64_relax_section): Use ELFNN_R_SYM, not
+	ELF64_R_SYM.
+	(elfNN_ia64_relax_ldxmov): Warning fix.
+	* xtensa-isa.c (xtensa_add_isa): Warning fix.
+	* xtensa-modules.c (get_num_opcodes): Warning fix.
+
+2003-05-09  Andrey Petrov <petrov@netbsd.org>
+
+	* elf.c (elf_fake_sections): Use correct cast for sh_name.
+
+2003-05-05  Daniel Jacobowitz  <drow@mvista.com>
+
+	* configure.in: Bump version to 2.13.91 for prerelease.
+	* configure: Regenerated.
+
+2003-05-04  H.J. Lu <hjl@gnu.org>
+
+	* elflink.h (elf_merge_symbol): Correctly handle weak definiton.
+
+2003-05-04  H.J. Lu <hjl@gnu.org>
+
+	* elflink.h (elf_merge_symbol): Don't record a hidden/internal
+	symbol dynamic. Check indirection when removing the old
+	definition for symbols with non-default visibility.
+	(elf_add_default_symbol): Skip when told by elf_merge_symbol.
+
+2003-05-03  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+	2003-04-28  H.J. Lu <hjl@gnu.org>
+	* elfxx-ia64.c (elfNN_ia64_relax_section): Relax ldxmov during
+	the relax finalize pass.
+
+	* section.c (struct sec): Add need_finalize_relax and remove
+	flag11.
+	(STD_SECTION): Update struct sec initializer.
+	* bfd-in2.h: Regenerated.
+
+	2003-04-28  H.J. Lu <hjl@gnu.org>
+	* elflink.h (elf_merge_symbol): Call elf_backend_copy_indirect_symbol
+	to copy any information related to dynamic linking when we flip
+	the indirection.
+
+	2003-04-27  H.J. Lu <hjl@gnu.org>
+	* elf-bfd.h (ELF_LINK_DYNAMIC_DEF): New.
+	(ELF_LINK_DYNAMIC_WEAK): New.
+
+	* elflink.h (elf_merge_symbol): Add one argument to indicate if
+	a symbol should be skipped. Ignore definitions in dynamic
+	objects for symbols with non-default visibility.
+	(elf_add_default_symbol): Adjusted.
+	(elf_link_add_object_symbols): Check if a symbol should be
+	skipped. Don't merge the visibility field with the one from
+	a dynamic object.
+	(elf_link_check_versioned_symbol): Use undef_bfd.
+	(elf_link_output_extsym): Warn if a forced local symbol is
+	referenced from dynamic objects. Make non-weak undefined symbol
+	with non-default visibility a fatal error.
+
+2003-05-02  Charles Lepple <clepple@ghz.cc>
+	    Nick Clifton <nickc@redhat.com>
+
+	* acinclude.m4: Fix name of --enable-install-libbfd switch.
+	* aclocal.m4: Regenerate.
+	* configure: Regenerate.
+	* Makefile.in: Regenerate.
+
+2003-05-02  Andreas Jaeger  <aj@suse.de>
+
+	* elf64-x86-64.c (elf_x86_64_copy_indirect_symbol): Don't copy
+	ELF_LINK_NON_GOT_REF for weakdefs when symbol already adjusted.
+	(ELIMINATE_COPY_RELOCS): Define as one.  Use throughout.
+	(elf_x86_64_adjust_dynamic_symbol): For weak symbols, copy
+	ELF_LINK_NON_GOT_REF from weakdef.
+
+2003-05-01  Alan Modra  <amodra@bigpond.net.au>
+
+	* elf32-ppc.c (ppc_elf_copy_indirect_symbol): Test whether the
+	weakdef sym has already been adjusted before treating it specially.
+	* elf32-i386.c (elf_i386_copy_indirect_symbol): Don't copy
+	ELF_LINK_NON_GOT_REF for weakdefs when symbol already adjusted.
+	* elf64-ppc.c (ppc64_elf_copy_indirect_symbol): Likewise.
+	(ppc64_elf_check_relocs): Set ELF_LINK_NON_GOT_REF.
+
 2003-04-26  Stephane Carrez  <stcarrez@nerim.fr>
 
 	PR savannah/3331:

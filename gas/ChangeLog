@@ -1,3 +1,99 @@
+2003-06-03  Nick Clifton  <nickc@redhat.com>
+
+	* tc-v850.c (tc-gen_reloc): Translate BFD_RELOC_32 into
+        BFD_RELOC_32_PCREL if the reloc is pc-relative.  Do this
+        before calling bfd_reloc_type_lookup.
+        
+2003-06-02  Alan Modra  <amodra@bigpond.net.au>
+
+	* macro.c (sub_actual): Don't lose string if it turns out that
+	&string wasn't an arg.
+
+2003-05-29  Kazuhiro Inaoka  <inaoka.kazuhiro@renesas.com>
+
+	* config/tc-m32r.c: Amend comment to refer to Renesas
+
+2003-05-24  Thiemo Seufer <seufer@csv.ica.uni-stuttgart.de>
+
+	* config/tc-mips.c (macro): Don't use uninitialized tempreg.
+
+2003-05-19  Svein E. Seldal  <Svein.Seldal@solidas.com>
+
+	* config/tc-tic4x.c (md_assemble): Added support for one-line parallel insns.
+	* config/tc-tic4x.h: Added DOUBLEBAR_PARALLEL definition
+
+2003-05-15  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+
+	2003-05-09  Martin Schwidefsky  <schwidefsky@de.ibm.com>
+	* config/tc-s390.c (s390_target_format): Always call init_default_arch.
+
+	2003-05-06  Alexandre Oliva  <aoliva@redhat.com>
+	* configure.in (MIPS_DEFAULT_ABI): AC_DEFINE.
+	* config/tc-mips.c (mips_after_parse_args): Set mips_abi to it.
+	* config.in, configure: Rebuilt.
+
+2003-05-13  Hans-Peter Nilsson  <hp@axis.com>
+
+	* read.c (old_buffer, old_input, old_limit): Remove variables.
+ 	(read_a_source_file): Delete label contin.
+	<handling #APP/#NO_APP>: Use an "sb" to push #APP expansion into
+	input as with macros, instead of in separate old_* variables.
+	Zero-terminate string being scrubbed.
+
+2003-05-05  Daniel Jacobowitz  <drow@mvista.com>
+
+	* config/tc-mips.c (mips_need_elf_addend_fixup): Remove
+	symbol_used_in_reloc_p check.
+	(md_apply_fix3): Remove check for howto->pcrel_offset.
+
+2003-05-01  Christian Groessler <chris@groessler.org>
+
+	* expr.h: Fix comments in operatorT typedef.
+	* config/tc-z8k.c: Add 2003 to copyright message.  
+	Fold s_segm() and s_unseg() into one function s_segm(parm) which
+	decides by the parameter.
+	(md_begin): Don't set linkrelax.  Only set Z8002 default if no
+	command line argument was given to select the intended
+	architecure.
+	(get_interrupt_operand): Warn if NOP type code is emitted.
+	(newfix): New parameter 'size', forward it to 'fix_new_exp'.
+	(apply_fix): Call newfix with additional 'size' parameter.
+	(build_bytes): Remove unused variable 'nib'.  Detect overflow in
+	4 bit immediate arguments.
+	(md_longopts): Add 'linkrelax' option.
+	(md_parse_option): Adapt to new s_segm function.  Set 'linkrelax'
+	variable when 'linkrelax' command line option is specified.
+	(md_show_usage): Display 'linkrelax' option.
+	(md_apply_fix3): Fix cases R_IMM4L, R_JR, and R_IMM8.  Add cases
+	R_CALLR and R_REL16.
+	* config/tc-z8k.h: Undef WARN_SIGNED_OVERFLOW_WORD.
+
+2003-04-30  Alan Modra  <amodra@bigpond.net.au>
+
+	* config/tc-hppa.c (hppa_symbol_chars): Revert 2003-04-28 change.
+	* config/tc-hppa.h (tc_symbol_chars): Likewise.
+	* config/tc-ppc.c (ppc_symbol_chars): Revert 2003-04-24 change.
+	* config/tc-ppc.h (tc_symbol_chars): Likewise.
+	* app.c (do_scrub_chars): Revert 2003-04-23 and 2003-04-22 changes.
+
+2003-04-29  Nick Clifton  <nickc@redhat.com>
+
+	* config/obj-elf.c (obj_elf_symver): Skip whitespace before the
+	start of a version name.
+
+2003-04-28  Chris Demetriou  <cgd@broadcom.com>
+
+	* configure.in (mips-*-*n*bsd*): Replace with...
+	(mips-*-netbsd*, mips-*-openbsd*): These.
+	* configure: Regenerate.
+
+2003-04-28  H.J. Lu <hjl@gnu.org>
+
+	* config/tc-hppa.c (hppa_symbol_chars): New.
+	* config/tc-hppa.h (tc_symbol_chars): Likewise.
+
 2003-04-26  Thiemo Seufer <seufer@csv.ica.uni-stuttgart.de>
 
 	* config/tc-mips.h (TC_FORCE_RELOCATION_SUB_SAME): Define again.

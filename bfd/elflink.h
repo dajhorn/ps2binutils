@@ -42,7 +42,7 @@ static bfd_boolean elf_merge_symbol
   PARAMS ((bfd *, struct bfd_link_info *, const char *,
 	   Elf_Internal_Sym *, asection **, bfd_vma *,
 	   struct elf_link_hash_entry **, bfd_boolean *, bfd_boolean *,
-	   bfd_boolean *, bfd_boolean));
+	   bfd_boolean *, bfd_boolean *, bfd_boolean));
 static bfd_boolean elf_add_default_symbol
   PARAMS ((bfd *, struct bfd_link_info *, struct elf_link_hash_entry *,
 	   const char *, Elf_Internal_Sym *, asection **, bfd_vma *,
@@ -463,7 +463,7 @@ elf_link_add_archive_symbols (abfd, info)
    a shared object.  */
 
 static bfd_boolean
-elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
+elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash, skip,
 		  override, type_change_ok, size_change_ok, dt_needed)
      bfd *abfd;
      struct bfd_link_info *info;
@@ -472,6 +472,7 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
      asection **psec;
      bfd_vma *pvalue;
      struct elf_link_hash_entry **sym_hash;
+     bfd_boolean *skip;
      bfd_boolean *override;
      bfd_boolean *type_change_ok;
      bfd_boolean *size_change_ok;
@@ -483,7 +484,9 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
   int bind;
   bfd *oldbfd;
   bfd_boolean newdyn, olddyn, olddef, newdef, newdyncommon, olddyncommon;
+  bfd_boolean newweakdef, oldweakdef, newweakundef, oldweakundef;
 
+  *skip = FALSE;
   *override = FALSE;
 
   sec = *psec;
@@ -606,6 +609,112 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
   else
     olddef = TRUE;
 
+  /* We need to rememeber if a symbol has a definition in a dynamic
+     object or is weak in all dynamic objects. Internal and hidden
+     visibility will make it unavailable to dynamic objects.  */
+  if (newdyn && (h->elf_link_hash_flags & ELF_LINK_DYNAMIC_DEF) == 0)
+    {
+      if (!bfd_is_und_section (sec))
+	h->elf_link_hash_flags |= ELF_LINK_DYNAMIC_DEF;
+      else
+	{
+	  /* Check if this symbol is weak in all dynamic objects. If it
+	     is the first time we see it in a dynamic object, we mark
+	     if it is weak. Otherwise, we clear it.  */
+	  if ((h->elf_link_hash_flags & ELF_LINK_HASH_REF_DYNAMIC) == 0)
+	    { 
+	      if (bind == STB_WEAK)
+		h->elf_link_hash_flags |= ELF_LINK_DYNAMIC_WEAK;
+	    }
+	  else if (bind != STB_WEAK)
+	    h->elf_link_hash_flags &= ~ELF_LINK_DYNAMIC_WEAK;
+	}
+    }
+
+  /* If the old symbol has non-default visibility, we ignore the new
+     definition from a dynamic object.  */
+  if (newdyn
+      && ELF_ST_VISIBILITY (h->other)
+      && !bfd_is_und_section (sec))
+    {
+      *skip = TRUE;
+      /* Make sure this symbol is dynamic.  */
+      h->elf_link_hash_flags |= ELF_LINK_HASH_REF_DYNAMIC;
+      /* A protected symbol has external availability. Make sure it is
+	 recorded as dynamic.
+
+	 FIXME: Should we check type and size for protected symbol?  */
+      if (ELF_ST_VISIBILITY (h->other) == STV_PROTECTED)
+	return _bfd_elf_link_record_dynamic_symbol (info, h);
+      else
+	return TRUE;
+    }
+  else if (!newdyn
+	   && ELF_ST_VISIBILITY (sym->st_other)
+	   && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC) != 0)
+    {
+      /* If the new symbol with non-default visibility comes from a
+	 relocatable file and the old definition comes from a dynamic
+	 object, we remove the old definition.  */
+      if ((*sym_hash)->root.type == bfd_link_hash_indirect)
+	h = *sym_hash;
+      h->root.type = bfd_link_hash_new;
+      h->root.u.undef.abfd = NULL;
+      if (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC)
+	{
+	  h->elf_link_hash_flags &= ~ELF_LINK_HASH_DEF_DYNAMIC;
+	  h->elf_link_hash_flags |= (ELF_LINK_HASH_REF_DYNAMIC
+				     | ELF_LINK_DYNAMIC_DEF);
+	}
+      /* FIXME: Should we check type and size for protected symbol?  */
+      h->size = 0;
+      h->type = 0;
+      return TRUE;
+    }
+
+  /* We need to treat weak definiton right, depending on if there is a
+     definition from a dynamic object.  */
+  if (bind == STB_WEAK)
+    {
+      if (olddef)
+	{
+	   newweakdef = TRUE;
+	   newweakundef = FALSE;
+	}
+      else
+	{
+	   newweakdef = FALSE;
+	   newweakundef = TRUE;
+	}
+    }
+  else
+    newweakdef = newweakundef = FALSE;
+
+  /* If the new weak definition comes from a relocatable file and the
+     old symbol comes from a dynamic object, we treat the new one as
+     strong.  */
+  if (newweakdef && !newdyn && olddyn)
+    newweakdef = FALSE;
+
+  if (h->root.type == bfd_link_hash_defweak)
+    {
+      oldweakdef = TRUE;
+      oldweakundef = FALSE;
+    }
+  else if (h->root.type == bfd_link_hash_undefweak)
+    {
+      oldweakdef = FALSE;
+      oldweakundef = TRUE;
+    }
+  else
+    oldweakdef = oldweakundef = FALSE;
+
+  /* If the old weak definition comes from a relocatable file and the
+     new symbol comes from a dynamic object, we treat the old one as
+     strong.  */
+  if (oldweakdef && !olddyn && newdyn)
+    oldweakdef = FALSE;
+
   /* NEWDYNCOMMON and OLDDYNCOMMON indicate whether the new or old
      symbol, respectively, appears to be a common symbol in a dynamic
      object.  If a symbol appears in an uninitialized section, and is
@@ -634,7 +743,8 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
       && (sec->flags & SEC_ALLOC) != 0
       && (sec->flags & SEC_LOAD) == 0
       && sym->st_size > 0
-      && bind != STB_WEAK
+      && !newweakdef
+      && !newweakundef
       && ELF_ST_TYPE (sym->st_info) != STT_FUNC)
     newdyncommon = TRUE;
   else
@@ -657,9 +767,10 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
      a shared object, in which case, the DT_NEEDED entry may not be
      required at the run time.  */
 
-  if ((! dt_needed && h->root.type == bfd_link_hash_defweak)
-      || h->root.type == bfd_link_hash_undefweak
-      || bind == STB_WEAK)
+  if ((! dt_needed && oldweakdef)
+      || oldweakundef
+      || newweakdef
+      || newweakundef)
     *type_change_ok = TRUE;
 
   /* It's OK to change the size if either the existing symbol or the
@@ -717,11 +828,13 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
       && newdef
       && (olddef
 	  || (h->root.type == bfd_link_hash_common
-	      && (bind == STB_WEAK
+	      && (newweakdef
+		  || newweakundef
 		  || ELF_ST_TYPE (sym->st_info) == STT_FUNC)))
-      && (h->root.type != bfd_link_hash_defweak
+      && (!oldweakdef
 	  || dt_needed
-	  || bind == STB_WEAK))
+	  || newweakdef
+	  || newweakundef))
     {
       *override = TRUE;
       newdef = FALSE;
@@ -774,13 +887,11 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
   if (! newdyn
       && (newdef
 	  || (bfd_is_com_section (sec)
-	      && (h->root.type == bfd_link_hash_defweak
-		  || h->type == STT_FUNC)))
+	      && (oldweakdef || h->type == STT_FUNC)))
       && olddyn
       && olddef
       && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC) != 0
-      && (bind != STB_WEAK
-	  || h->root.type == bfd_link_hash_defweak))
+      && ((!newweakdef && !newweakundef) || oldweakdef))
     {
       /* Change the hash table entry to undefined, and let
 	 _bfd_generic_link_add_one_symbol do the right thing with the
@@ -856,10 +967,12 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
       /* Handle the case where we had a versioned symbol in a dynamic
 	 library and now find a definition in a normal object.  In this
 	 case, we make the versioned symbol point to the normal one.  */
+      struct elf_backend_data *bed = get_elf_backend_data (abfd);
       flip->root.type = h->root.type;
-      flip->root.u.undef.abfd = h->root.u.undef.abfd;
       h->root.type = bfd_link_hash_indirect;
       h->root.u.i.link = (struct bfd_link_hash_entry *) flip;
+      (*bed->elf_backend_copy_indirect_symbol) (bed, flip, h);
+      flip->root.u.undef.abfd = h->root.u.undef.abfd;
       if (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_DYNAMIC)
 	{
 	  h->elf_link_hash_flags &= ~ELF_LINK_HASH_DEF_DYNAMIC;
@@ -874,10 +987,11 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
      the DT_NEEDED entry may not be required at the run time.  */
   if (olddef
       && ! dt_needed
-      && h->root.type == bfd_link_hash_defweak
+      && oldweakdef
       && newdef
       && newdyn
-      && bind != STB_WEAK)
+      && !newweakdef
+      && !newweakundef)
     {
       /* To make this work we have to frob the flags so that the rest
 	 of the code does not think we are using the regular
@@ -903,10 +1017,10 @@ elf_merge_symbol (abfd, info, name, sym, psec, pvalue, sym_hash,
      as a definition.  */
   if (olddef
       && olddyn
-      && h->root.type != bfd_link_hash_defweak
+      && !oldweakdef
       && newdef
       && ! newdyn
-      && bind == STB_WEAK)
+      && (newweakdef || newweakundef))
     *override = TRUE;
 
   return TRUE;
@@ -934,6 +1048,7 @@ elf_add_default_symbol (abfd, info, h, name, sym, psec, value,
 {
   bfd_boolean type_change_ok;
   bfd_boolean size_change_ok;
+  bfd_boolean skip;
   char *shortname;
   struct elf_link_hash_entry *hi;
   struct bfd_link_hash_entry *bh;
@@ -989,9 +1104,12 @@ elf_add_default_symbol (abfd, info, h, name, sym, psec, value,
   size_change_ok = FALSE;
   sec = *psec;
   if (! elf_merge_symbol (abfd, info, shortname, sym, &sec, value,
-			  &hi, &override, &type_change_ok,
+			  &hi, &skip, &override, &type_change_ok,
 			  &size_change_ok, dt_needed))
     return FALSE;
+
+  if (skip)
+    goto nondefault;
 
   if (! override)
     {
@@ -1086,6 +1204,7 @@ elf_add_default_symbol (abfd, info, h, name, sym, psec, value,
   /* We also need to define an indirection from the nondefault version
      of the symbol.  */
 
+nondefault:
   len = strlen (name);
   shortname = bfd_hash_allocate (&info->hash->table, len);
   if (shortname == NULL)
@@ -1098,9 +1217,12 @@ elf_add_default_symbol (abfd, info, h, name, sym, psec, value,
   size_change_ok = FALSE;
   sec = *psec;
   if (! elf_merge_symbol (abfd, info, shortname, sym, &sec, value,
-			  &hi, &override, &type_change_ok,
+			  &hi, &skip, &override, &type_change_ok,
 			  &size_change_ok, dt_needed))
     return FALSE;
+
+  if (skip)
+    return TRUE;
 
   if (override)
     {
@@ -1740,6 +1862,7 @@ elf_link_add_object_symbols (abfd, info)
 	{
 	  Elf_Internal_Versym iver;
 	  unsigned int vernum = 0;
+	  bfd_boolean skip;
 
 	  if (ever != NULL)
 	    {
@@ -1837,9 +1960,13 @@ elf_link_add_object_symbols (abfd, info)
 	    }
 
 	  if (! elf_merge_symbol (abfd, info, name, isym, &sec, &value,
-				  sym_hash, &override, &type_change_ok,
-				  &size_change_ok, dt_needed))
+				  sym_hash, &skip, &override,
+				  &type_change_ok, &size_change_ok,
+				  dt_needed))
 	    goto error_free_vers;
+
+	  if (skip)
+	    continue;
 
 	  if (override)
 	    definition = FALSE;
@@ -2020,9 +2147,10 @@ elf_link_add_object_symbols (abfd, info)
 	      h->type = ELF_ST_TYPE (isym->st_info);
 	    }
 
-	  /* If st_other has a processor-specific meaning, specific code
-	     might be needed here.  */
-	  if (isym->st_other != 0)
+	  /* If st_other has a processor-specific meaning, specific
+	     code might be needed here. We never merge the visibility
+	     attribute with the one from a dynamic object.  */
+	  if (isym->st_other != 0 && !dynamic)
 	    {
 	      unsigned char hvis, symvis, other, nvis;
 
@@ -2089,7 +2217,7 @@ elf_link_add_object_symbols (abfd, info)
 					  override, dt_needed))
 	      goto error_free_vers;
 
-	  if (definition && (abfd->flags & DYNAMIC) == 0)
+	  if (definition && !dynamic)
 	    {
 	      char *p = strchr (name, ELF_VER_CHR);
 	      if (p != NULL && p[1] != ELF_VER_CHR)
@@ -6094,20 +6222,44 @@ elf_link_sec_merge_syms (h, data)
 
 /* For DSOs loaded in via a DT_NEEDED entry, emulate ld.so in
    allowing an unsatisfied unversioned symbol in the DSO to match a
-   versioned symbol that would normally require an explicit version.  */
+   versioned symbol that would normally require an explicit version.
+   We also handle the case that a DSO references a hidden symbol
+   which may be satisfied by a versioned symbol in another DSO.  */
 
 static bfd_boolean
 elf_link_check_versioned_symbol (info, h)
      struct bfd_link_info *info;
      struct elf_link_hash_entry *h;
 {
-  bfd *undef_bfd = h->root.u.undef.abfd;
+  bfd *abfd;
   struct elf_link_loaded_list *loaded;
 
-  if ((undef_bfd->flags & DYNAMIC) == 0
-      || info->hash->creator->flavour != bfd_target_elf_flavour
-      || elf_dt_soname (h->root.u.undef.abfd) == NULL)
+  if (info->hash->creator->flavour != bfd_target_elf_flavour)
     return FALSE;
+
+  switch (h->root.type)
+    {
+    default:
+      abfd = NULL;
+      break;
+
+    case bfd_link_hash_undefined:
+    case bfd_link_hash_undefweak:
+      abfd = h->root.u.undef.abfd;
+      if ((abfd->flags & DYNAMIC) == 0 || elf_dt_soname (abfd) == NULL)
+	return FALSE;
+      break;
+
+    case bfd_link_hash_defined:
+    case bfd_link_hash_defweak:
+      abfd = h->root.u.def.section->owner;
+      break;
+
+    case bfd_link_hash_common:
+      abfd = h->root.u.c.p->section->owner;
+      break;
+    }
+  BFD_ASSERT (abfd != NULL);
 
   for (loaded = elf_hash_table (info)->loaded;
        loaded != NULL;
@@ -6128,7 +6280,7 @@ elf_link_check_versioned_symbol (info, h)
       input = loaded->abfd;
 
       /* We check each DSO for a possible hidden versioned definition.  */
-      if (input == undef_bfd
+      if (input == abfd
 	  || (input->flags & DYNAMIC) == 0
 	  || elf_dynversym (input) == 0)
 	continue;
@@ -6271,6 +6423,29 @@ elf_link_output_extsym (h, data)
 	  eoinfo->failed = TRUE;
 	  return FALSE;
 	}
+    }
+
+  /* We should also warn if a forced local symbol is referenced from
+     shared libraries.  */
+  if (! finfo->info->relocateable
+      && (! finfo->info->shared || ! finfo->info->allow_shlib_undefined)
+      && (h->elf_link_hash_flags
+	  & (ELF_LINK_FORCED_LOCAL | ELF_LINK_HASH_REF_DYNAMIC
+	     | ELF_LINK_DYNAMIC_DEF | ELF_LINK_DYNAMIC_WEAK))
+	 == (ELF_LINK_FORCED_LOCAL | ELF_LINK_HASH_REF_DYNAMIC)
+      && ! elf_link_check_versioned_symbol (finfo->info, h))
+    {
+      (*_bfd_error_handler)
+	(_("%s: %s symbol `%s' in %s is referenced by DSO"),
+	 bfd_get_filename (finfo->output_bfd),
+	 ELF_ST_VISIBILITY (h->other) == STV_INTERNAL
+	 ? "internal"
+	 : ELF_ST_VISIBILITY (h->other) == STV_HIDDEN
+	   ? "hidden" : "local",
+	 h->root.root.string,
+	 bfd_archive_filename (h->root.u.def.section->owner));
+      eoinfo->failed = TRUE;
+      return FALSE;
     }
 
   /* We don't want to output symbols that have never been mentioned by
@@ -6433,10 +6608,25 @@ elf_link_output_extsym (h, data)
       sym.st_info = ELF_ST_INFO (bindtype, ELF_ST_TYPE (sym.st_info));
     }
 
-  /* If a symbol is not defined locally, we clear the visibility field.  */
+  /* If a non-weak symbol with non-default visibility is not defined
+     locally, it is a fatal error.  */
   if (! finfo->info->relocateable
+      && ELF_ST_VISIBILITY (sym.st_other)
+      && ELF_ST_BIND (sym.st_info) != STB_WEAK
+      && h->root.type == bfd_link_hash_undefined
       && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR) == 0)
-    sym.st_other &= ~ ELF_ST_VISIBILITY (-1);
+    {
+      (*_bfd_error_handler)
+	(_("%s: %s symbol `%s' isn't defined"),
+	  bfd_get_filename (finfo->output_bfd),
+	  ELF_ST_VISIBILITY (sym.st_other) == STV_PROTECTED
+	  ? "protected"
+	  : ELF_ST_VISIBILITY (sym.st_other) == STV_INTERNAL
+	    ? "internal" : "hidden",
+	  h->root.root.string);
+      eoinfo->failed = TRUE;
+      return FALSE;
+    }
 
   /* If this symbol should be put in the .dynsym section, then put it
      there now.  We already know the symbol index.  We also fill in

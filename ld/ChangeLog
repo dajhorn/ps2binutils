@@ -1,3 +1,30 @@
+2003-06-12  Richard Sandiford  <rsandifo@redhat.com>
+
+	* configure.tgt (mips*-sgi-irix6*): Add the o32 and n64 emulations
+	to $targ_extra_libpath.
+
+2003-06-02  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+	2003-05-15  H.J. Lu <hongjiu.lu@intel.com>
+	* emulparams/elf64_ia64.sh: Don't set COMMONPAGESIZE for now.
+
+2003-05-30  Nick Clifton  <nickc@redhat.com>
+
+	* emultempl/armelf.em (arm_elf_before_allocation): Replace ASSERT
+	with a test for a NULL bfd_for_interworking.
+
+2003-05-05  Alan Modra  <amodra@bigpond.net.au>
+
+	* ldlex.l: Accept C style comments in version scripts.
+
+2003-04-28  H.J. Lu <hjl@gnu.org>
+
+	* ldlang.c (lang_process): Add the relax finalize pass.
+
+	* ldmain.c (main): Initialize link_info.relax_finalizing to
+	FALSE.
+
 2003-04-24  Roland McGrath  <roland@redhat.com>
 
 	* ldgram.y (phdr_type): Grok PT_TLS and PT_GNU_EH_FRAME names.

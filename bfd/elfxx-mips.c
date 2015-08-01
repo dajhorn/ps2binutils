@@ -7856,10 +7856,10 @@ _bfd_mips_elf_hide_symbol (info, entry, force_local)
   h = (struct mips_elf_link_hash_entry *) entry;
   if (h->forced_local)
     return;
-  h->forced_local = TRUE;
+  h->forced_local = force_local;
 
   dynobj = elf_hash_table (info)->dynobj;
-  if (dynobj != NULL)
+  if (dynobj != NULL && force_local)
     {
       got = mips_elf_got_section (dynobj, FALSE);
       g = mips_elf_section_data (got)->u.got_info;
@@ -7956,7 +7956,7 @@ _bfd_mips_elf_discard_info (abfd, cookie, info)
   cookie->rel = cookie->rels;
   cookie->relend = cookie->rels + o->reloc_count;
 
-  for (i = 0, skip = 0; i < o->_raw_size; i ++)
+  for (i = 0, skip = 0; i < o->_raw_size / PDR_SIZE; i ++)
     {
       if (MNAME(abfd,_bfd_elf,reloc_symbol_deleted_p) (i * PDR_SIZE, cookie))
 	{
@@ -9231,11 +9231,24 @@ _bfd_mips_elf_merge_private_bfd_data (ibfd, obfd)
 
   /* Check if we have the same endianess */
   if (! _bfd_generic_verify_endian_match (ibfd, obfd))
-    return FALSE;
+    {
+      (*_bfd_error_handler)
+	(_("%s: endianness incompatible with that of the selected emulation"),
+	 bfd_archive_filename (ibfd));
+      return FALSE;
+    }
 
   if (bfd_get_flavour (ibfd) != bfd_target_elf_flavour
       || bfd_get_flavour (obfd) != bfd_target_elf_flavour)
     return TRUE;
+
+  if (strcmp (bfd_get_target (ibfd), bfd_get_target (obfd)) != 0)
+    {
+      (*_bfd_error_handler)
+	(_("%s: ABI is incompatible with that of the selected emulation"),
+	 bfd_archive_filename (ibfd));
+      return FALSE;
+    }
 
   new_flags = elf_elfheader (ibfd)->e_flags;
   elf_elfheader (obfd)->e_flags |= new_flags & EF_MIPS_NOREORDER;

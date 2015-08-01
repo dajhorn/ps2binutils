@@ -704,9 +704,12 @@ elfNN_ia64_relax_section (abfd, sec, link_info, again)
   if (link_info->hash->creator->flavour != bfd_target_elf_flavour)
     return FALSE;
 
-  /* Nothing to do if there are no relocations.  */
+  /* Nothing to do if there are no relocations or there is no need for
+     the relax finalize pass.  */
   if ((sec->flags & SEC_RELOC) == 0
-      || sec->reloc_count == 0)
+      || sec->reloc_count == 0
+      || (link_info->relax_finalizing
+	  && sec->need_finalize_relax == 0))
     return TRUE;
 
   /* If this is the first time we have been called for this section,
@@ -756,11 +759,18 @@ elfNN_ia64_relax_section (abfd, sec, link_info, again)
 	case R_IA64_PCREL21BI:
 	case R_IA64_PCREL21M:
 	case R_IA64_PCREL21F:
+	  if (link_info->relax_finalizing)
+	    continue;
 	  is_branch = TRUE;
 	  break;
 
 	case R_IA64_LTOFF22X:
 	case R_IA64_LDXMOV:
+	  if (!link_info->relax_finalizing)
+	    {
+	      sec->need_finalize_relax = 1;
+	      continue;
+	    }
 	  is_branch = FALSE;
 	  break;
 
@@ -786,7 +796,7 @@ elfNN_ia64_relax_section (abfd, sec, link_info, again)
 		goto error_return;
 	    }
 
-	  isym = isymbuf + ELF64_R_SYM (irel->r_info);
+	  isym = isymbuf + ELFNN_R_SYM (irel->r_info);
 	  if (isym->st_shndx == SHN_UNDEF)
 	    continue;	/* We can't do anthing with undefined symbols.  */
 	  else if (isym->st_shndx == SHN_ABS)
@@ -1047,6 +1057,9 @@ elfNN_ia64_relax_section (abfd, sec, link_info, again)
       /* ??? Resize .rela.got too.  */
     }
 
+  if (link_info->relax_finalizing)
+    sec->need_finalize_relax = 0;
+
   *again = changed_contents || changed_relocs;
   return TRUE;
 
@@ -1076,7 +1089,7 @@ elfNN_ia64_relax_ldxmov (abfd, contents, off)
     case 0: shift =  5; break;
     case 1: shift = 14; off += 3; break;
     case 2: shift = 23; off += 6; break;
-    case 3:
+    default:
       abort ();
     }
 

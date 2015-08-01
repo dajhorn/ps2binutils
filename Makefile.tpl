@@ -206,8 +206,8 @@ USUAL_MAKEINFO = `if [ -f $$r/texinfo/makeinfo/makeinfo ] ; \
 # This just becomes part of the MAKEINFO definition passed down to
 # sub-makes.  It lets flags be given on the command line while still
 # using the makeinfo from the object tree.
-# (Default to avoid splitting info files by setting the threshold high.)
-MAKEINFOFLAGS = --split-size=5000000
+# (Default to avoid splitting info files.)
+MAKEINFOFLAGS = --no-split
 
 EXPECT = `if [ -f $$r/expect/expect ] ; \
 	then echo $$r/expect/expect ; \
@@ -672,6 +672,7 @@ local-distclean:
 	-if [ "$(TARGET_SUBDIR)" != "." ]; then \
 	  rm -rf $(TARGET_SUBDIR); \
 	else true; fi
+	-rm -rf $(BUILD_SUBDIR)
 	-rm -f texinfo/po/Makefile texinfo/po/Makefile.in texinfo/info/Makefile
 	-rm -f texinfo/doc/Makefile texinfo/po/POTFILES
 	-rmdir texinfo/doc texinfo/info texinfo/intl texinfo/lib 2>/dev/null
