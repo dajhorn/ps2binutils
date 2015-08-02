@@ -6,7 +6,7 @@ INCDIR = $(srcdir)/../include
 CSEARCH = -I. -I$(srcdir) -I$(INCDIR)
 MKDEP = gcc -MM
 
-SUBDIRS = doc po
+SUBDIRS = po
 
 docdir = doc
 bfdlibdir = @bfdlibdir@

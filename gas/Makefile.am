@@ -5,7 +5,7 @@ INTLLIBS = @INTLLIBS@
 
 AUTOMAKE_OPTIONS = cygnus dejagnu
 
-SUBDIRS = doc po
+SUBDIRS = po
 
 tooldir = $(exec_prefix)/$(target_alias)
 
