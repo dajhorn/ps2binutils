@@ -1,3 +1,43 @@
+2004-05-06  Daniel Jacobowitz  <dan@debian.org>
+
+	* src-release (do-tar): Add directories to the tar file.
+
+2004-05-06  Daniel Jacobowitz  <dan@debian.org>
+
+	Merge from mainline:
+	2004-04-15  James E Wilson  <wilson@specifixinc.com>
+	* Makefile.tpl (configure-[+module+], configure-gcc,
+	configure-stage1-gcc, configure-stage2-gcc, configure-stage3-gcc):
+	Set and export LDFLAGS.
+	* Makefile.in: Regenerate.
+
+2004-04-19  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* configure.in (mips*-*-irix5*): Enable ld.
+	* configure: Regenerate.
+
+2004-04-09  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+	2004-03-25  Stan Shebs  <shebs@apple.com>
+        Remove MPW support, no longer used.
+        * mpw-README, mpw-build.in, mpw-config.in, mpw-configure,
+        mpw-install: Remove files.
+        * src-release (DEVO_SUPPORT): Remove names of removed files.
+        * MAINTAINERS: Likewise.
+
+	2004-02-28  Andrew Cagney  <cagney@redhat.com>
+	* src-release (CVS_NAMES): Define.
+	(do-tar, do-tar): Prune $(CVS_NAMES).
+
+	2004-02-23  Andrew Cagney  <cagney@redhat.com>
+	* texinfo/texinfo.tex: Update from version 2003-02-03.16 to
+	2004-02-19.09.
+
+	2004-02-19  Andrew Cagney  <cagney@redhat.com>
+	* config.guess: Update from version 2003-06-12 to 2004-02-16.
+	* config.sub: Update from version 2003-06-13 to 2004-02-16.
+
 2004-02-11  David Edelsohn  <edelsohn@gnu.org>
 
 	* configure.in (powerpc-*-aix*): Add target-libada to noconfigdirs.

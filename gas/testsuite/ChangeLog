@@ -1,3 +1,109 @@
+2004-05-11  Daniel Jacobowitz  <dan@debian.org>
+
+	Revert patch for 2.15:
+	2004-02-09  Kaz Kojima  <kkojima@rr.iij4u.or.jp>
+	* gas/sh/sh64/err-dsp.s: Fix expected error message.
+
+2004-05-06  Daniel Jacobowitz  <dan@debian.org>
+
+	Merge from mainline:
+	2004-04-23  Nick Clifton  <nickc@redhat.com>
+	* gas/symver/symver1.d: Cope with extra symbols inserted by
+	arm-elf toolchains.
+	* gas/symver/symver0.d: Likewise
+	* gas/elf/symver.d: Likewise.
+
+2004-05-05  Alexandre Oliva  <aoliva@redhat.com>
+
+	* gas/frv/reloc1.d: Match elf32-frvfdpic as well.
+
+2004-04-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gas/mips/vr4122.[sd]: Change option to -mfix-vr4120.
+
+2004-04-14  Richard Sandiford  <rsandifo@redhat.com>
+
+	* gas/elf/section2.e-mips: Allow named section symbols.
+	* gas/mips/{,el}empic.d, gas/mips/mips{,el}16-[ef].d: Likewise.
+
+2004-04-09  Daniel Jacobowitz  <drow@mvista.com>
+
+	Merge from mainline:
+	2004-04-01  Asgari Jinia  <asgarij@kpitcummins.com>
+	* gas/sh/renesas-1.s, gas/sh/renesas-1.d: New test for -renesas
+	option.
+	* gas/sh/basic.exp: Run the new test.
+
+	2004-04-01  Dave Korn  <dk@artimi.com>
+	* gas/dlx/alltests.exp: Execute new lohi test.
+	* gas/dlx/lohi.s: New test for spurious lo16/hi16
+	reloc overflow checking.
+	* gas/dlx/lohi.d: New file: expected output.
+	* gas/dlx/lhi.d: Updated to properly expect lo16
+	relocations where asked for.
+	* gas/dlx/itype.d: Likewise.
+	* gas/dlx/lhi.d: Corrected cut+paste error in test name.
+
+	2004-03-23  Andreas Schwab  <schwab@suse.de>
+	* gas/cfi/cfi-m68k.d: Adjust offsets.
+
+	2004-03-08  Andreas Jaeger  <aj@suse.de>
+	* gas/cfi/cfi-s390x-1.d: Adjust offsets.
+
+	2004-03-07  Richard Henderson  <rth@redhat.com>
+	* gas/cfi/cfi-common-2.d, gas/cfi/cfi-i386.d: Adjust offsets.
+
+	2004-03-07  Andreas Jaeger  <aj@suse.de>
+	* gas/cfi/cfi-x86_64.d: Adjust offsets.
+
+	2004-03-07  Richard Henderson  <rth@redhat.com>
+	* gas/alpha/elf-reloc-8.d, gas/cfi/cfi-alpha-1.d,
+	gas/cfi/cfi-alpha-2.d, gas/cfi/cfi-alpha-3.d, gas/cfi/cfi-common-1.d,
+	gas/cfi/cfi-common-2.d, gas/cfi/cfi-common-3.d: Adjust offsets.
+
+	2004-03-03  Kaz Kojima  <kkojima@rr.iij4u.or.jp>
+	* gas/sh/sh64/err-dsp.s: Fix expected error message.
+
+2004-03-22  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gas/cris/regreg.d: Assemble with --no-mul-bug-abort.
+	* gas/cris/mulbug-err-1.s, gas/cris/rd-mulbug-1.d: New tests.
+
+2004-03-17  Kaz Kojima  <kkojima@rr.iij4u.or.jp>
+
+	* gas/cfi/cfi-sh-1.d: New file.
+	* gas/cfi/cfi-sh-1.s: Likewise.	
+	* gas/cfi/cfi.exp: Add SH case.
+
+2004-03-16  Alan Modra  <amodra@bigpond.net.au>
+
+	* gas/ppc/altivec.d: Update.
+	* gas/ppc/altivec_xcoff.d: Update.
+	* gas/ppc/altivec_xcoff64.d: Update.
+	* gas/ppc/astest.d: Update.
+	* gas/ppc/astest2.d: Update.
+	* gas/ppc/astest2_64.d: Update.
+	* gas/ppc/astest64.d: Update.
+	* gas/ppc/booke.d: Update.
+	* gas/ppc/booke_xcoff.d: Update.
+	* gas/ppc/booke_xcoff64.d: Update.
+	* gas/ppc/e500.d: Update.
+	* gas/ppc/power4.d: Update.
+	* gas/ppc/test1elf32.d: Update.
+	* gas/ppc/test1elf64.d: Update.
+	* gas/ppc/test1xcoff32.d: Update.
+
+2004-03-15  Alan Modra  <amodra@bigpond.net.au>
+
+	* gas/i386/padlock.s: Pad with .p2align.
+	* gas/i386/padlock.d: Adjust.
+
+2004-03-12  Michal Ludvig  <mludvig@suse.cz>
+
+	* gas/i386/padlock.s, gas/i386/padlock.d: New tests for
+	VIA PadLock instructions.
+	* gas/i386/i386.exp: Run padlock tests.
+
 2004-02-17  Petko Manolov  <petkan@nucleusys.com>
 
 	* gas/arm/maverick.c: DSPSC to/from opcode fixes.

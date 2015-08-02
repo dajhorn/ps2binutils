@@ -231,6 +231,7 @@ changequote([,])dnl
       dlx-*-*)				fmt=elf ;;
 
       fr30-*-*)				fmt=elf ;;
+      frv-*-*linux*)			fmt=elf em=linux;;
       frv-*-*)				fmt=elf ;;
       dvp-*-*)				fmt=elf bfd_gas=yes install_tooldir= ;;
 
@@ -378,7 +379,6 @@ changequote([,])dnl
 
       # don't change em like *-*-bsd does
       mips-dec-openbsd*)		fmt=elf endian=little ;;
-      mips-dec-bsd*)			fmt=aout endian=little ;;
       mips-sony-bsd*)			fmt=ecoff ;;
       mips-*-bsd*)
 	    AC_MSG_ERROR(Unknown vendor for mips-bsd configuration.) ;;
@@ -404,7 +404,7 @@ changequote([,])dnl
       mn10300-*-*)			fmt=elf ;;
       msp430-*-*)			fmt=elf ;;
       openrisc-*-*)			fmt=elf ;;
-      or32-*-rtems*)			fmt=coff ;;
+      or32-*-rtems*)			fmt=elf ;;
       or32-*-coff)			fmt=coff ;;
       or32-*-elf)			fmt=elf ;;
       pj*)				fmt=elf ;;
@@ -456,8 +456,8 @@ changequote([,])dnl
       sh-*-coff*)			fmt=coff ;;
       sh-*-nto*)			fmt=elf ;;
       sh-*-pe*)				fmt=coff em=pe bfd_gas=yes endian=little ;;
-      sh-*-rtemself*)			fmt=elf ;;
-      sh-*-rtems*)			fmt=coff ;;
+      sh-*-rtemscoff*)			fmt=coff ;;
+      sh-*-rtems*)			fmt=elf ;;
       sh-*-kaos*)			fmt=elf ;;
       shle*-*-kaos*)			fmt=elf ;;
       sh64-*-elf*)			fmt=elf ;;

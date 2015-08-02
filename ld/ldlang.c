@@ -445,6 +445,7 @@ new_afile (const char *name,
   p->next = NULL;
   p->symbol_count = 0;
   p->dynamic = config.dynamic_link;
+  p->as_needed = as_needed;
   p->whole_archive = whole_archive;
   p->loaded = FALSE;
   lang_statement_append (&input_file_chain,
@@ -622,7 +623,7 @@ lang_output_section_statement_lookup (const char *const name)
 
       lookup->next = NULL;
       lookup->bfd_section = NULL;
-      lookup->processed = FALSE;
+      lookup->processed = 0;
       lookup->sectype = normal_section;
       lookup->addr_tree = NULL;
       lang_list_init (&lookup->children);
@@ -1100,10 +1101,6 @@ lang_add_section (lang_statement_list_type *ptr,
 	  section->output_section->flags &= ~ (SEC_MERGE | SEC_STRINGS);
 	  flags &= ~ (SEC_MERGE | SEC_STRINGS);
 	}
-
-      /* For now make .tbss normal section.  */
-      if ((flags & SEC_THREAD_LOCAL) && ! link_info.relocatable)
-	flags |= SEC_LOAD;
 
       section->output_section->flags |= flags;
 
@@ -1846,7 +1843,7 @@ open_input_bfds (lang_statement_union_type *s, bfd_boolean force)
 	  /* Maybe we should load the file's symbols.  */
 	  if (s->wild_statement.filename
 	      && ! wildcardp (s->wild_statement.filename))
-	    (void) lookup_name (s->wild_statement.filename);
+	    lookup_name (s->wild_statement.filename);
 	  open_input_bfds (s->wild_statement.children.head, force);
 	  break;
 	case lang_group_statement_enum:
@@ -2098,10 +2095,14 @@ map_input_to_output_sections
 					target,
 					output_section_statement);
 	  break;
+	case lang_data_statement_enum:
+	  /* Make sure that any sections mentioned in the expression
+	     are initialized.  */
+	  exp_init_os (s->data_statement.exp);
+	  /* FALLTHROUGH */
 	case lang_fill_statement_enum:
 	case lang_input_section_enum:
 	case lang_object_symbols_statement_enum:
-	case lang_data_statement_enum:
 	case lang_reloc_statement_enum:
 	case lang_padding_statement_enum:
 	case lang_input_statement_enum:
@@ -2766,8 +2767,11 @@ size_input_section (lang_statement_union_type **this_ptr,
 }
 
 #define IGNORE_SECTION(bfd, s) \
-  (((bfd_get_section_flags (bfd, s) & (SEC_ALLOC | SEC_NEVER_LOAD))	\
-    != SEC_ALLOC)							\
+  (((bfd_get_section_flags (bfd, s) & SEC_THREAD_LOCAL)			\
+    ? ((bfd_get_section_flags (bfd, s) & (SEC_LOAD | SEC_NEVER_LOAD))	\
+       != SEC_LOAD)							\
+    :  ((bfd_get_section_flags (bfd, s) & (SEC_ALLOC | SEC_NEVER_LOAD)) \
+	!= SEC_ALLOC))							\
    || bfd_section_size (bfd, s) == 0)
 
 /* Check to see if any allocated sections overlap with other allocated
@@ -2980,12 +2984,15 @@ lang_size_sections_1
 		  {
 		    etree_value_type r;
 
+		    os->processed = -1;
 		    r = exp_fold_tree (os->addr_tree,
 				       abs_output_section,
 				       lang_allocating_phase_enum,
 				       dot, &dot);
+		    os->processed = 0;
+		    
 		    if (!r.valid_p)
-		      einfo (_("%F%S: non constant address expression for section %s\n"),
+		      einfo (_("%F%S: non constant or forward reference address expression for section %s\n"),
 			     os->name);
 
 		    dot = r.value + r.section->bfd_section->vma;
@@ -3014,16 +3021,18 @@ lang_size_sections_1
 
 	    if (bfd_is_abs_section (os->bfd_section))
 	      ASSERT (after == os->bfd_section->vma);
-	    else if ((os->bfd_section->flags & SEC_HAS_CONTENTS) == 0
-		     && (os->bfd_section->flags & SEC_THREAD_LOCAL)
-		     && ! link_info.relocatable)
-	      os->bfd_section->_raw_size = 0;
 	    else
 	      os->bfd_section->_raw_size
 		= TO_SIZE (after - os->bfd_section->vma);
 
-	    dot = os->bfd_section->vma + TO_ADDR (os->bfd_section->_raw_size);
-	    os->processed = TRUE;
+	    dot = os->bfd_section->vma;
+	    /* .tbss sections effectively have zero size.  */
+	    if ((os->bfd_section->flags & SEC_HAS_CONTENTS) != 0
+		|| (os->bfd_section->flags & SEC_THREAD_LOCAL) == 0
+		|| link_info.relocatable)
+	      dot += TO_ADDR (os->bfd_section->_raw_size);
+
+	    os->processed = 1;
 
 	    if (os->update_dot_tree != 0)
 	      exp_fold_tree (os->update_dot_tree, abs_output_section,
@@ -3084,6 +3093,11 @@ lang_size_sections_1
 	      dot - output_section_statement->bfd_section->vma;
 	    s->data_statement.output_section =
 	      output_section_statement->bfd_section;
+
+	    /* We might refer to provided symbols in the expression, and
+	       need to mark them as needed.  */
+	    exp_fold_tree (s->data_statement.exp, abs_output_section,
+			   lang_allocating_phase_enum, dot, &dot);
 
 	    switch (s->data_statement.type)
 	      {
@@ -3290,6 +3304,7 @@ lang_size_sections
 	  && first + last <= exp_data_seg.pagesize)
 	{
 	  exp_data_seg.phase = exp_dataseg_adjust;
+	  lang_statement_iteration++;
 	  result = lang_size_sections_1 (s, output_section_statement, prev,
 					 fill, dot, relax, check_regions);
 	}
@@ -3334,8 +3349,7 @@ lang_do_assignments_1
 	    if (os->bfd_section != NULL)
 	      {
 		dot = os->bfd_section->vma;
-		(void) lang_do_assignments_1 (os->children.head, os,
-					      os->fill, dot);
+		lang_do_assignments_1 (os->children.head, os, os->fill, dot);
 		dot = (os->bfd_section->vma
 		       + TO_ADDR (os->bfd_section->_raw_size));
 
@@ -3375,9 +3389,10 @@ lang_do_assignments_1
 	    value = exp_fold_tree (s->data_statement.exp,
 				   abs_output_section,
 				   lang_final_phase_enum, dot, &dot);
-	    s->data_statement.value = value.value;
 	    if (!value.valid_p)
 	      einfo (_("%F%P: invalid data statement\n"));
+	    s->data_statement.value
+	      = value.value + value.section->bfd_section->vma;
 	  }
 	  {
 	    unsigned int size;
@@ -3672,7 +3687,7 @@ lang_check (void)
 	  if (! bfd_merge_private_bfd_data (input_bfd, output_bfd))
 	    {
 	      if (command_line.warn_mismatch)
-		einfo (_("%E%X: failed to merge target specific data of file %B\n"),
+		einfo (_("%P%X: failed to merge target specific data of file %B\n"),
 		       input_bfd);
 	    }
 	  if (! command_line.warn_mismatch)
@@ -3922,24 +3937,6 @@ lang_for_each_file (void (*func) (lang_input_statement_type *))
       func (f);
     }
 }
-
-#if 0
-
-/* Not used.  */
-
-void
-lang_for_each_input_section (void (*func) (bfd *ab, asection *as))
-{
-  LANG_FOR_EACH_INPUT_STATEMENT (f)
-    {
-      asection *s;
-
-      for (s = f->the_bfd->sections; s != NULL; s = s->next)
-	func (f->the_bfd, s);
-    }
-}
-
-#endif
 
 void
 ldlang_add_file (lang_input_statement_type *entry)

@@ -972,6 +972,18 @@ behaviour from release 2.14 onwards is to reject such input files, and
 so the @samp{--accept-unknown-input-arch} option has been added to
 restore the old behaviour.
 
+@kindex --as-needed
+@kindex --no-as-needed
+@item --as-needed
+@itemx --no-as-needed
+This option affects ELF DT_NEEDED tags for dynamic libraries mentioned
+on the command line after the @option{--as-needed} option.  Normally,
+the linker will add a DT_NEEDED tag for each dynamic library mentioned
+on the command line, regardless of whether the library is actually
+needed. @option{--as-needed} causes DT_NEEDED tags to only be emitted
+for libraries that satisfy some reference from regular objects.
+@option{--no-as-needed} restores the default behaviour.
+
 @kindex -assert @var{keyword}
 @item -assert @var{keyword}
 This option is ignored for SunOS compatibility.
@@ -1702,9 +1714,9 @@ Here is a trivial example:
 
 @smallexample
 void *
-__wrap_malloc (int c)
+__wrap_malloc (size_t c)
 @{
-  printf ("malloc called with %ld\n", c);
+  printf ("malloc called with %zu\n", c);
   return __real_malloc (c);
 @}
 @end smallexample
@@ -4383,17 +4395,25 @@ SECTIONS @{ @dots{}
 @end group
 @end smallexample
 
-@item ALIGN(@var{exp})
-@kindex ALIGN(@var{exp})
+@item ALIGN(@var{align})
+@itemx ALIGN(@var{exp},@var{align})
+@kindex ALIGN(@var{align})
+@kindex ALIGN(@var{exp},@var{align})
 @cindex round up location counter
 @cindex align location counter
-Return the location counter (@code{.}) aligned to the next @var{exp}
-boundary.
-@code{ALIGN} doesn't change the value of the location counter---it just
-does arithmetic on it.  Here is an example which aligns the output
-@code{.data} section to the next @code{0x2000} byte boundary after the
-preceding section and sets a variable within the section to the next
-@code{0x8000} boundary after the input sections:
+@cindex round up expression
+@cindex align expression
+Return the location counter (@code{.}) or arbitrary expression aligned
+to the next @var{align} boundary.  The single operand @code{ALIGN}
+doesn't change the value of the location counter---it just does
+arithmetic on it.  The two operand @code{ALIGN} allows an arbitrary
+expression to be aligned upwards (@code{ALIGN(@var{align})} is
+equivalent to @code{ALIGN(., @var{align})}).
+
+Here is an example which aligns the output @code{.data} section to the
+next @code{0x2000} byte boundary after the preceding section and sets a
+variable within the section to the next @code{0x8000} boundary after the
+input sections:
 @smallexample
 @group
 SECTIONS @{ @dots{}
