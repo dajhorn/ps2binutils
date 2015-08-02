@@ -98,9 +98,7 @@ CXX_FOR_TARGET = ` \
   fi`
 
 noinst_PROGRAMS = ld-new
-info_TEXINFOS = ld.texinfo
-noinst_TEXINFOS = ldint.texinfo
-man_MANS = ld.1
+man_MANS =
 
 INCLUDES = -D_GNU_SOURCE -I. -I$(srcdir) -I../bfd -I$(BFDDIR) -I$(INCDIR) -I$(top_srcdir)/../intl -I../intl $(HDEFINES) $(CFLAGS) -DLOCALEDIR="\"$(prefix)/share/locale\""
 
@@ -675,7 +673,7 @@ eelf32l4300.c: $(srcdir)/emulparams/elf32l4300.sh \
   $(srcdir)/emultempl/mipself.em \
   $(srcdir)/emultempl/elf32.em $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} elf32l4300 "$(tdir_elf32l4300)"
-eelf32l5900.c: $(srcdir)/emulparams/elf32l5900.sh
+eelf32l5900.c: $(srcdir)/emulparams/elf32l5900.sh \
   $(srcdir)/emultempl/elf32.em $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
 	${GENSCRIPTS} elf32l5900 "$(tdir_elf32l5900)"
 eelf32lmip.c: $(srcdir)/emulparams/elf32lmip.sh \
